@@ -43,10 +43,17 @@ class _CreateBookingScreenState extends ConsumerState<CreateBookingScreen> {
       return;
     }
     setState(() => _isSubmitting = true);
+
+    final days = _endDate!.difference(_startDate!).inDays + 1;
+    final detailState = ref.read(listingDetailProvider(widget.listingId));
+    final listing = detailState.listing;
+
     final success = await ref.read(bookingsProvider.notifier).createBooking({
-      'listing_id': widget.listingId,
+      'listing_id': listing?.firestoreId ?? widget.listingId.toString(),
       'start_date': '${_startDate!.year}-${_startDate!.month.toString().padLeft(2, '0')}-${_startDate!.day.toString().padLeft(2, '0')}',
       'end_date': '${_endDate!.year}-${_endDate!.month.toString().padLeft(2, '0')}-${_endDate!.day.toString().padLeft(2, '0')}',
+      'total_days': days,
+      'total_price': (listing?.pricePerDay ?? 0) * days,
       'notes': _notesCtrl.text.trim(),
     });
     setState(() => _isSubmitting = false);
@@ -54,7 +61,7 @@ class _CreateBookingScreenState extends ConsumerState<CreateBookingScreen> {
       showSnackBar(context, 'Booking request sent!');
       context.go('/bookings');
     } else if (mounted) {
-      showSnackBar(context, 'Failed to create booking', isError: true);
+      showSnackBar(context, 'Failed to create booking. Please try again.', isError: true);
     }
   }
 

@@ -102,7 +102,7 @@ class HomeScreen extends ConsumerWidget {
                   _buildHeroWithSearch(context, authState.user?.name),
 
                   // Stats
-                  _buildStatsSection(),
+                  _buildStatsSection(ref),
 
                   // Categories
                   Padding(
@@ -253,12 +253,27 @@ class HomeScreen extends ConsumerWidget {
   }
 
   // ── Stats ────────────────────────────────────────────────────────────
-  Widget _buildStatsSection() {
-    final stats = [
-      {'value': '10K+', 'label': 'Listings'},
-      {'value': '50K+', 'label': 'Users'},
-      {'value': '100+', 'label': 'Cities'},
-      {'value': '4.8★', 'label': 'Rating'},
+  Widget _buildStatsSection(WidgetRef ref) {
+    final homeState = ref.watch(homeProvider);
+    final stats = homeState.stats;
+
+    // Format numbers nicely
+    String fmt(int n) {
+      if (n >= 1000000) return '${(n / 1000000).toStringAsFixed(1)}M+';
+      if (n >= 1000) return '${(n / 1000).toStringAsFixed(1)}K+';
+      return n.toString();
+    }
+
+    final items = [
+      {'value': fmt(stats.totalListings), 'label': 'Listings'},
+      {'value': fmt(stats.totalUsers), 'label': 'Users'},
+      {'value': fmt(stats.totalCities), 'label': 'Cities'},
+      {
+        'value': stats.avgRating > 0
+            ? '${stats.avgRating.toStringAsFixed(1)}★'
+            : '—',
+        'label': 'Rating'
+      },
     ];
 
     return Container(
@@ -271,7 +286,7 @@ class HomeScreen extends ConsumerWidget {
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: stats.map((s) {
+        children: items.map((s) {
           return Column(
             children: [
               ShaderMask(
@@ -410,97 +425,35 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  // ── CTA ──────────────────────────────────────────────────────────────
+  // -- CTA --
   Widget _buildCtaSection(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(authProvider).user;
-    final isHost = user?.isHost ?? false;
-
-    // HOST CTA — list your item
-    if (isHost) {
-      return Container(
-        margin: const EdgeInsets.fromLTRB(20, 32, 20, 0),
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF1A0A2E), Color(0xFF0A1A2E)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppColors.neonViolet.withOpacity(0.3)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            NeonGradientText(
-              'List Your Item',
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              gradient: const LinearGradient(
-                colors: [AppColors.neonViolet, AppColors.neonPink],
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Earn money by renting out your unused items to people nearby.',
-              style: GoogleFonts.spaceGrotesk(
-                color: AppColors.textSecondary,
-                fontSize: 13,
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 16),
-            // Stack buttons vertically to avoid overflow on small screens
-            PrimaryGlowButton(
-              label: 'Create Listing',
-              onPressed: () => context.push('/create-listing'),
-              width: double.infinity,
-              gradient: const LinearGradient(
-                colors: [AppColors.neonViolet, AppColors.neonPink],
-              ),
-            ),
-            const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                onPressed: () => context.push('/my-listings'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.neonViolet,
-                  side: const BorderSide(color: AppColors.neonViolet),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-                child: const Text('View My Listings'),
-              ),
-            ),
-          ],
-        ),
-      ).animate().fadeIn(delay: 600.ms);
-    }
-
-    // RENTER CTA — browse and find items
+    // Everyone can list items -- no role restriction
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 32, 20, 0),
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF0A1A2E), Color(0xFF0A0A1E)],
+          colors: [Color(0xFF1A0A2E), Color(0xFF0A1A2E)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.neonCyan.withOpacity(0.25)),
+        border: Border.all(color: AppColors.neonViolet.withOpacity(0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           NeonGradientText(
-            'Find What You Need',
+            'List Your Item',
             fontSize: 22,
             fontWeight: FontWeight.w700,
+            gradient: const LinearGradient(
+              colors: [AppColors.neonViolet, AppColors.neonPink],
+            ),
           ),
           const SizedBox(height: 8),
           Text(
-            'Browse thousands of items available for rent near you — cars, cameras, tools and more.',
+            'Earn money by renting out your unused items to people nearby.',
             style: GoogleFonts.spaceGrotesk(
               color: AppColors.textSecondary,
               fontSize: 13,
@@ -509,16 +462,18 @@ class HomeScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
           PrimaryGlowButton(
-            label: 'Browse All Listings',
-            icon: Icons.search_outlined,
-            onPressed: () => context.push('/browse'),
+            label: 'Create Listing',
+            width: double.infinity,
+            onPressed: () => context.push('/create-listing'),
+            gradient: const LinearGradient(
+              colors: [AppColors.neonViolet, AppColors.neonPink],
+            ),
           ),
         ],
       ),
     ).animate().fadeIn(delay: 600.ms);
   }
-
-  // ── Shimmer placeholders ─────────────────────────────────────────────
+  // -- Shimmer placeholders ─────────────────────────────────────────────
   Widget _buildCategoryShimmer() {
     return SizedBox(
       height: 100,

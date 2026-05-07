@@ -1,20 +1,23 @@
 import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:image_picker/image_picker.dart';
-import '../../../core/mock/mock_data.dart';
+import '../../../core/mock/mock_data.dart'; // only for mockCategories fallback
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/helpers.dart';
+import '../../../shared/widgets/image_source_sheet.dart';
 import '../../../shared/widgets/neon_gradient_text.dart';
 import '../../../shared/widgets/primary_glow_button.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../models/listing_model.dart';
 import '../providers/listings_provider.dart';
 
-// ── Provider to hold newly created listings (mock) ───────────────────────────
+// ── Provider to hold newly created listings (local cache) ────────────────────
 final myListingsProvider =
     StateNotifierProvider<_MyListingsNotifier, List<ListingModel>>((ref) {
   return _MyListingsNotifier();
@@ -25,8 +28,7 @@ class _MyListingsNotifier extends StateNotifier<List<ListingModel>> {
 
   void add(ListingModel listing) {
     state = [listing, ...state];
-    // Also add to global mock so browse shows it
-    mockListings.insert(0, listing);
+    // No more mockListings insert — data lives in Firestore
   }
 }
 
@@ -69,17 +71,17 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
     super.dispose();
   }
 
-  // ── Pick images ────────────────────────────────────────────────────────────
+  // ── Pick images — camera or gallery ───────────────────────────────────────
   Future<void> _pickImages() async {
-    final picker = ImagePicker();
-    final files = await picker.pickMultiImage(
+    final paths = await pickMultipleImages(
+      context,
       imageQuality: 80,
       maxWidth: 1024,
     );
-    if (files.isEmpty) return;
+    if (paths.isEmpty) return;
     setState(() {
-      for (final f in files) {
-        if (_photos.length < 6) _photos.add(File(f.path));
+      for (final path in paths) {
+        if (_photos.length < 6) _photos.add(File(path));
       }
     });
   }
@@ -87,7 +89,6 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
   // ── Submit ─────────────────────────────────────────────────────────────────
   Future<void> _submit() async {
     setState(() => _isSubmitting = true);
-    await Future.delayed(const Duration(milliseconds: 900));
 
     final user = ref.read(authProvider).user;
     final category = mockCategories.firstWhere(
@@ -95,30 +96,85 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
       orElse: () => mockCategories.first,
     );
 
-    final newListing = ListingModel(
-      id: DateTime.now().millisecondsSinceEpoch % 100000,
-      title: _titleCtrl.text.trim(),
-      description: _descCtrl.text.trim(),
-      pricePerDay: double.parse(_priceCtrl.text.trim()),
-      city: _cityCtrl.text.trim(),
-      address: _addressCtrl.text.trim(),
-      images: _photos.map((f) => f.path).toList(),
-      status: 'active',
-      isFeatured: false,
-      category: category,
-      host: user,
-      createdAt: DateTime.now().toIso8601String(),
-    );
+    try {
+      // 1. Upload images to Firebase Storage if any
+      List<String> imageUrls = [];
+      if (_photos.isNotEmpty) {
+        try {
+          final tempId = DateTime.now().millisecondsSinceEpoch.toString();
+          for (int i = 0; i < _photos.length; i++) {
+            final ref = FirebaseStorage.instance
+                .ref('listings/$tempId/image_$i.jpg');
+            final task = await ref.putFile(
+              _photos[i],
+              SettableMetadata(contentType: 'image/jpeg'),
+            );
+            final url = await task.ref.getDownloadURL();
+            imageUrls.add(url);
+          }
+        } catch (e) {
+          // Use local paths as fallback
+          imageUrls = _photos.map((f) => f.path).toList();
+        }
+      }
 
-    ref.read(myListingsProvider.notifier).add(newListing);
-    // Refresh browse
-    ref.read(browseProvider.notifier).loadListings(refresh: true);
+      // 2. Get host's Firebase UID directly from Firebase Auth
+      final hostFirebaseUid =
+          FirebaseAuth.instance.currentUser?.uid ?? '';
 
-    setState(() => _isSubmitting = false);
+      // 3. Save listing to Firestore
+      final docRef = await FirebaseFirestore.instance
+          .collection('listings')
+          .add({
+        'title': _titleCtrl.text.trim(),
+        'description': _descCtrl.text.trim(),
+        'price_per_day': double.parse(_priceCtrl.text.trim()),
+        'city': _cityCtrl.text.trim(),
+        'address': _addressCtrl.text.trim(),
+        'images': imageUrls,
+        'status': 'active',
+        'is_featured': false,
+        'category_id': _selectedCategoryId?.toString(),
+        'category_name': category.name,
+        'category_icon': category.icon,
+        'host_id': hostFirebaseUid,
+        'host_email': user?.email ?? '',
+        'host_name': user?.name ?? '',
+        'avg_rating': 0.0,
+        'reviews_count': 0,
+        'created_at': FieldValue.serverTimestamp(),
+      });
 
-    if (mounted) {
-      showSnackBar(context, 'Listing created successfully! 🎉');
-      context.go('/my-listings');
+      // 4. Also add to local state for immediate UI update
+      final newListing = ListingModel(
+        id: docRef.id.hashCode,
+        title: _titleCtrl.text.trim(),
+        description: _descCtrl.text.trim(),
+        pricePerDay: double.parse(_priceCtrl.text.trim()),
+        city: _cityCtrl.text.trim(),
+        address: _addressCtrl.text.trim(),
+        images: imageUrls.isNotEmpty
+            ? imageUrls
+            : _photos.map((f) => f.path).toList(),
+        status: 'active',
+        isFeatured: false,
+        category: category,
+        host: user,
+        createdAt: DateTime.now().toIso8601String(),
+      );
+
+      ref.read(myListingsProvider.notifier).add(newListing);
+      ref.read(browseProvider.notifier).loadListings(refresh: true);
+      setState(() => _isSubmitting = false);
+      if (mounted) {
+        showSnackBar(context, 'Listing created successfully! 🎉');
+        context.go('/my-listings');
+      }
+    } catch (e) {
+      setState(() => _isSubmitting = false);
+      if (mounted) {
+        showSnackBar(context, 'Failed to create listing: $e', isError: true);
+      }
     }
   }
 

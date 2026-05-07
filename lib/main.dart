@@ -2,13 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
+import 'core/firebase/firebase_service.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // ── Stripe init — wrapped in try/catch so app never white-screens ──
+  // ── Firebase init ──────────────────────────────────────────────────
+  await FirebaseService.init();
+
+  // ── Stripe init ────────────────────────────────────────────────────
   try {
     const pk = String.fromEnvironment('STRIPE_PK', defaultValue: '');
     if (pk.isNotEmpty) {

@@ -1,5 +1,6 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/mock/mock_data.dart';
 import '../models/listing_model.dart';
 import '../models/review_model.dart';
 
@@ -43,6 +44,8 @@ class BrowseState {
 }
 
 class BrowseNotifier extends StateNotifier<BrowseState> {
+  static final _db = FirebaseFirestore.instance;
+
   BrowseNotifier() : super(const BrowseState()) {
     loadListings();
   }
@@ -50,68 +53,84 @@ class BrowseNotifier extends StateNotifier<BrowseState> {
   Future<void> loadListings({bool refresh = false}) async {
     if (state.isLoading) return;
     state = state.copyWith(isLoading: true, error: null);
-    await Future.delayed(const Duration(milliseconds: 500));
 
-    var results = List<ListingModel>.from(mockListings);
+    try {
+      Query q = _db.collection('listings').where('status', isEqualTo: 'active');
 
-    // Apply filters
-    final filters = state.filters;
+      final filters = state.filters;
 
-    if (filters['search'] != null && (filters['search'] as String).isNotEmpty) {
-      final q = (filters['search'] as String).toLowerCase();
-      results = results
-          .where((l) =>
-              l.title.toLowerCase().contains(q) ||
-              l.city.toLowerCase().contains(q) ||
-              (l.category?.name.toLowerCase().contains(q) ?? false))
-          .toList();
+      // Category filter
+      if (filters['category_id'] != null) {
+        q = q.where('category_id',
+            isEqualTo: filters['category_id'].toString());
+      }
+
+      // City filter
+      if (filters['city'] != null &&
+          (filters['city'] as String).isNotEmpty) {
+        q = q.where('city', isEqualTo: filters['city']);
+      }
+
+      // Price filters
+      if (filters['min_price'] != null) {
+        q = q.where('price_per_day',
+            isGreaterThanOrEqualTo:
+                double.tryParse(filters['min_price'].toString()) ?? 0);
+      }
+      if (filters['max_price'] != null) {
+        q = q.where('price_per_day',
+            isLessThanOrEqualTo:
+                double.tryParse(filters['max_price'].toString()) ??
+                    double.infinity);
+      }
+
+      final snap = await q
+          .limit(50)
+          .get()
+          .timeout(const Duration(seconds: 10));
+
+      var results = snap.docs.map((doc) {
+        return ListingModel.fromJson({'id': doc.id, ...doc.data() as Map<String, dynamic>});
+      }).toList();
+
+      // Client-side search
+      final search = filters['search']?.toString().toLowerCase() ?? '';
+      if (search.isNotEmpty) {
+        results = results
+            .where((l) =>
+                l.title.toLowerCase().contains(search) ||
+                l.city.toLowerCase().contains(search) ||
+                (l.category?.name.toLowerCase().contains(search) ?? false))
+            .toList();
+      }
+
+      // Client-side sort
+      final sort = filters['sort'] ?? 'latest';
+      switch (sort) {
+        case 'price_asc':
+          results.sort((a, b) => a.pricePerDay.compareTo(b.pricePerDay));
+          break;
+        case 'price_desc':
+          results.sort((a, b) => b.pricePerDay.compareTo(a.pricePerDay));
+          break;
+        case 'rating':
+          results.sort(
+              (a, b) => (b.avgRating ?? 0).compareTo(a.avgRating ?? 0));
+          break;
+        default:
+          // latest — Firestore returns in insertion order by default
+          break;
+      }
+
+      state = state.copyWith(
+        isLoading: false,
+        listings: results,
+        hasMore: false,
+      );
+    } catch (e) {
+      debugPrint('BrowseNotifier error: $e');
+      state = state.copyWith(isLoading: false, error: e.toString());
     }
-
-    if (filters['category_id'] != null) {
-      results = results
-          .where((l) => l.category?.id == filters['category_id'])
-          .toList();
-    }
-
-    if (filters['city'] != null && (filters['city'] as String).isNotEmpty) {
-      final city = (filters['city'] as String).toLowerCase();
-      results = results
-          .where((l) => l.city.toLowerCase().contains(city))
-          .toList();
-    }
-
-    if (filters['min_price'] != null) {
-      final min = double.tryParse(filters['min_price'].toString()) ?? 0;
-      results = results.where((l) => l.pricePerDay >= min).toList();
-    }
-
-    if (filters['max_price'] != null) {
-      final max = double.tryParse(filters['max_price'].toString()) ?? double.infinity;
-      results = results.where((l) => l.pricePerDay <= max).toList();
-    }
-
-    // Apply sort
-    final sort = filters['sort'] ?? 'latest';
-    switch (sort) {
-      case 'price_asc':
-        results.sort((a, b) => a.pricePerDay.compareTo(b.pricePerDay));
-        break;
-      case 'price_desc':
-        results.sort((a, b) => b.pricePerDay.compareTo(a.pricePerDay));
-        break;
-      case 'rating':
-        results.sort((a, b) => (b.avgRating ?? 0).compareTo(a.avgRating ?? 0));
-        break;
-      default: // latest
-        results.sort((a, b) =>
-            (b.createdAt ?? '').compareTo(a.createdAt ?? ''));
-    }
-
-    state = state.copyWith(
-      isLoading: false,
-      listings: results,
-      hasMore: false,
-    );
   }
 
   Future<void> applyFilters(Map<String, dynamic> filters) async {
@@ -170,6 +189,7 @@ class ListingDetailState {
 
 class ListingDetailNotifier extends StateNotifier<ListingDetailState> {
   final int listingId;
+  static final _db = FirebaseFirestore.instance;
 
   ListingDetailNotifier(this.listingId) : super(const ListingDetailState()) {
     load();
@@ -177,23 +197,54 @@ class ListingDetailNotifier extends StateNotifier<ListingDetailState> {
 
   Future<void> load() async {
     state = state.copyWith(isLoading: true, error: null);
-    await Future.delayed(const Duration(milliseconds: 400));
 
-    final listing = mockListings.firstWhere(
-      (l) => l.id == listingId,
-      orElse: () => mockListings.first,
-    );
+    try {
+      // listingId is a hash of the Firestore string ID
+      // We need to find the doc by querying or by direct ID
+      // Since we store firestoreId in the model, try to find by hash match
+      final snap = await _db
+          .collection('listings')
+          .where('status', isEqualTo: 'active')
+          .limit(100)
+          .get()
+          .timeout(const Duration(seconds: 10));
 
-    final reviews = mockReviews
-        .where((r) => r.listingId == listingId)
-        .toList();
+      ListingModel? listing;
+      for (final doc in snap.docs) {
+        final candidate = ListingModel.fromJson(
+            {'id': doc.id, ...doc.data() as Map<String, dynamic>});
+        if (candidate.id == listingId) {
+          listing = candidate;
+          break;
+        }
+      }
 
-    state = state.copyWith(
-      isLoading: false,
-      listing: listing,
-      reviews: reviews,
-      unavailableDates: ['2024-05-18', '2024-05-19', '2024-05-25'],
-    );
+      // Fetch reviews
+      List<ReviewModel> reviews = [];
+      if (listing?.firestoreId != null) {
+        try {
+          final reviewSnap = await _db
+              .collection('reviews')
+              .where('listing_id', isEqualTo: listing!.firestoreId)
+              .get()
+              .timeout(const Duration(seconds: 5));
+          reviews = reviewSnap.docs.map((d) {
+            return ReviewModel.fromJson(
+                {'id': d.id, ...d.data() as Map<String, dynamic>});
+          }).toList();
+        } catch (_) {}
+      }
+
+      state = state.copyWith(
+        isLoading: false,
+        listing: listing,
+        reviews: reviews,
+        unavailableDates: [],
+      );
+    } catch (e) {
+      debugPrint('ListingDetailNotifier error: $e');
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
   }
 }
 

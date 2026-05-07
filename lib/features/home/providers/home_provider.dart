@@ -1,22 +1,34 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/mock/mock_data.dart';
 import '../../listings/models/category_model.dart';
 import '../../listings/models/listing_model.dart';
-import '../../listings/models/review_model.dart';
+
+class HomeStats {
+  final int totalListings;
+  final int totalUsers;
+  final int totalCities;
+  final double avgRating;
+
+  const HomeStats({
+    this.totalListings = 0,
+    this.totalUsers = 0,
+    this.totalCities = 0,
+    this.avgRating = 0.0,
+  });
+}
 
 class HomeState {
   final List<CategoryModel> categories;
   final List<ListingModel> featuredListings;
-  final List<ReviewModel> latestReviews;
-  final Map<String, dynamic> stats;
+  final HomeStats stats;
   final bool isLoading;
   final String? error;
 
   const HomeState({
     this.categories = const [],
     this.featuredListings = const [],
-    this.latestReviews = const [],
-    this.stats = const {},
+    this.stats = const HomeStats(),
     this.isLoading = false,
     this.error,
   });
@@ -24,15 +36,13 @@ class HomeState {
   HomeState copyWith({
     List<CategoryModel>? categories,
     List<ListingModel>? featuredListings,
-    List<ReviewModel>? latestReviews,
-    Map<String, dynamic>? stats,
+    HomeStats? stats,
     bool? isLoading,
     String? error,
   }) {
     return HomeState(
       categories: categories ?? this.categories,
       featuredListings: featuredListings ?? this.featuredListings,
-      latestReviews: latestReviews ?? this.latestReviews,
       stats: stats ?? this.stats,
       isLoading: isLoading ?? this.isLoading,
       error: error,
@@ -47,16 +57,118 @@ class HomeNotifier extends StateNotifier<HomeState> {
 
   Future<void> loadHome() async {
     state = state.copyWith(isLoading: true, error: null);
-    // Simulate brief loading
-    await Future.delayed(const Duration(milliseconds: 600));
 
-    state = state.copyWith(
-      isLoading: false,
-      categories: mockCategories,
-      featuredListings: mockListings.where((l) => l.isFeatured).toList(),
-      latestReviews: mockReviews,
-      stats: mockAdminStats,
-    );
+    try {
+      // Load categories from Firestore, fallback to mock
+      List<CategoryModel> cats = [];
+      try {
+        final catSnap = await FirebaseFirestore.instance
+            .collection('categories')
+            .orderBy('name')
+            .get()
+            .timeout(const Duration(seconds: 8));
+        if (catSnap.docs.isNotEmpty) {
+          cats = catSnap.docs.map((d) {
+            return CategoryModel.fromJson({'id': d.id, ...d.data()});
+          }).toList();
+        }
+      } catch (_) {}
+
+      // Fallback to mock categories if Firestore empty
+      if (cats.isEmpty) cats = mockCategories;
+
+      final results = await Future.wait([
+        _fetchFeaturedListings(),
+        _fetchStats(),
+      ]);
+
+      state = state.copyWith(
+        isLoading: false,
+        categories: cats,
+        featuredListings: results[0] as List<ListingModel>,
+        stats: results[1] as HomeStats,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        categories: mockCategories,
+        featuredListings: [],
+        stats: const HomeStats(),
+      );
+    }
+  }
+
+  // ── Fetch featured listings from Firestore ─────────────────────────────────
+  Future<List<ListingModel>> _fetchFeaturedListings() async {
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('listings')
+          .where('is_featured', isEqualTo: true)
+          .where('status', isEqualTo: 'active')
+          .limit(10)
+          .get()
+          .timeout(const Duration(seconds: 8));
+
+      return snap.docs.map((doc) {
+        final data = <String, dynamic>{'id': doc.id, ...doc.data()};
+        return ListingModel.fromJson(data);
+      }).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  // ── Fetch real stats from Firestore ────────────────────────────────────────
+  Future<HomeStats> _fetchStats() async {
+    try {
+      // Use get() instead of count() — more compatible with Firestore rules
+      final results = await Future.wait([
+        FirebaseFirestore.instance
+            .collection('listings')
+            .where('status', isEqualTo: 'active')
+            .get()
+            .timeout(const Duration(seconds: 8)),
+        FirebaseFirestore.instance
+            .collection('users')
+            .get()
+            .timeout(const Duration(seconds: 8)),
+      ]);
+
+      final listingsSnap = results[0] as QuerySnapshot;
+      final usersSnap = results[1] as QuerySnapshot;
+
+      final listingsCount = listingsSnap.docs.length;
+      final usersCount = usersSnap.docs.length;
+
+      // Count unique cities
+      final cities = listingsSnap.docs
+          .map((d) =>
+              (d.data() as Map<String, dynamic>)['city']?.toString() ?? '')
+          .where((c) => c.isNotEmpty)
+          .toSet();
+
+      // Average rating
+      double avgRating = 0.0;
+      final ratings = listingsSnap.docs
+          .map((d) {
+            final data = d.data() as Map<String, dynamic>;
+            return (data['avg_rating'] as num?)?.toDouble() ?? 0.0;
+          })
+          .where((r) => r > 0)
+          .toList();
+      if (ratings.isNotEmpty) {
+        avgRating = ratings.reduce((a, b) => a + b) / ratings.length;
+      }
+
+      return HomeStats(
+        totalListings: listingsCount,
+        totalUsers: usersCount,
+        totalCities: cities.length,
+        avgRating: avgRating,
+      );
+    } catch (_) {
+      return const HomeStats();
+    }
   }
 }
 

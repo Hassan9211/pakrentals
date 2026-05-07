@@ -17,7 +17,6 @@ import '../../features/messages/screens/chat_screen.dart';
 import '../../features/messages/screens/messages_screen.dart';
 import '../../features/notifications/screens/notifications_screen.dart';
 import '../../features/profile/screens/cnic_screen.dart';
-import '../../features/profile/screens/edit_profile_screen.dart';
 import '../../features/profile/screens/payment_methods_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
 import '../../features/reports/screens/reports_screen.dart';
@@ -55,7 +54,6 @@ const _protectedRoutes = [
   '/booking/',
   '/payment/',
   '/messages',
-  '/profile/edit',
   '/profile/cnic',
   '/profile/payment-methods',
   '/wishlist',
@@ -195,10 +193,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/wishlist',
         builder: (_, __) => const WishlistScreen(),
-      ),
-      GoRoute(
-        path: '/profile/edit',
-        builder: (_, __) => const EditProfileScreen(),
       ),
       GoRoute(
         path: '/profile/cnic',

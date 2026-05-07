@@ -1,7 +1,6 @@
-import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../../../core/storage/auth_storage.dart';
+import '../../../core/firebase/firebase_auth_service.dart';
+import '../../../core/firebase/storage_service.dart';
 import '../models/user_model.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -36,179 +35,256 @@ class AuthState {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AUTH NOTIFIER — MOCK MODE
-// User data is persisted in SharedPreferences so it survives app restarts
+// AUTH NOTIFIER — Firebase Auth + Firestore
 // ─────────────────────────────────────────────────────────────────────────────
 class AuthNotifier extends StateNotifier<AuthState> {
-  final AuthStorage _storage;
-  static const _userKey = 'mock_user_data';
-
-  AuthNotifier(this._storage) : super(const AuthState()) {
+  AuthNotifier() : super(const AuthState()) {
     _checkAuth();
   }
 
   // ── Restore session on app start ───────────────────────────────────────────
   Future<void> _checkAuth() async {
-    final hasToken = await _storage.hasToken();
-    if (!hasToken) return;
+    final firebaseUser = FirebaseAuthService.currentUser;
+    if (firebaseUser == null) return;
 
-    // Restore the actual user who logged in / registered
-    final prefs = await SharedPreferences.getInstance();
-    final userJson = prefs.getString(_userKey);
-    if (userJson != null) {
-      try {
-        final user = UserModel.fromJson(jsonDecode(userJson));
-        state = state.copyWith(user: user, isAuthenticated: true);
-        return;
-      } catch (_) {}
-    }
-    // Fallback: clear stale token
-    await _storage.deleteToken();
-  }
+    try {
+      final data = await FirebaseAuthService.getUserData(firebaseUser.uid);
 
-  // ── Save user to local storage ─────────────────────────────────────────────
-  Future<void> _persistUser(UserModel user) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_userKey, jsonEncode(user.toJson()));
-  }
+      // Determine role — admin by UID or email
+      final isAdmin = firebaseUser.uid == _adminUid ||
+          (firebaseUser.email?.toLowerCase() == _adminEmail);
 
-  // ── Clear user from local storage ─────────────────────────────────────────
-  Future<void> _clearUser() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_userKey);
-  }
+      final userData = data ?? {
+        'id': firebaseUser.uid,
+        'name': firebaseUser.displayName ??
+            firebaseUser.email?.split('@').first ?? 'User',
+        'email': firebaseUser.email ?? '',
+        'role': isAdmin ? 'admin' : 'user',
+        'is_verified': firebaseUser.emailVerified,
+        'cnic_status': 'none',
+        'payment_methods': [],
+      };
 
-  // ── Login ──────────────────────────────────────────────────────────────────
-  Future<bool> login(String email, String password,
-      {String role = 'user'}) async {
-    state = state.copyWith(isLoading: true, error: null);
-    await Future.delayed(const Duration(milliseconds: 700));
+      // Override role if admin
+      if (isAdmin) userData['role'] = 'admin';
 
-    if (email.trim().isEmpty || password.isEmpty) {
-      state = state.copyWith(isLoading: false, error: 'Invalid credentials.');
-      return false;
-    }
-
-    // Check if a previously registered user exists in SharedPreferences
-    final prefs = await SharedPreferences.getInstance();
-    final existingJson = prefs.getString(_userKey);
-    UserModel? existingUser;
-    if (existingJson != null) {
-      try {
-        final decoded = UserModel.fromJson(jsonDecode(existingJson));
-        if (decoded.email == email.trim()) {
-          existingUser = decoded;
-        }
-      } catch (_) {}
-    }
-
-    // If existing user found, use their saved data but update role if changed
-    final UserModel user;
-    if (existingUser != null) {
-      // Update role if user selected a different one on login
-      user = UserModel(
-        id: existingUser.id,
-        name: existingUser.name,
-        email: existingUser.email,
-        phone: existingUser.phone,
-        photo: existingUser.photo,
-        cnic: existingUser.cnic,
-        cnicFrontPhoto: existingUser.cnicFrontPhoto,
-        cnicBackPhoto: existingUser.cnicBackPhoto,
-        cnicStatus: existingUser.cnicStatus,
-        paymentMethods: existingUser.paymentMethods,
-        role: role, // apply selected role
-        isVerified: existingUser.isVerified,
-        city: existingUser.city,
-        bio: existingUser.bio,
-        rating: existingUser.rating,
-        reviewsCount: existingUser.reviewsCount,
+      state = state.copyWith(
+        user: UserModel.fromJson(userData),
+        isAuthenticated: true,
       );
-    } else {
-      // New user — create from email + selected role
-      final name = email.split('@').first;
-      final displayName = name[0].toUpperCase() +
-          name.substring(1).replaceAll(RegExp(r'[^a-zA-Z]'), ' ').trim();
-      user = UserModel(
-        id: email.hashCode.abs() % 9000 + 1000,
-        name: displayName,
-        email: email.trim(),
-        role: role,
-        isVerified: false,
-      );
-    }
-
-    await _storage.saveToken('mock_token_${user.id}');
-    await _persistUser(user);
-
-    state = state.copyWith(
-      isLoading: false,
-      user: user,
-      isAuthenticated: true,
-    );
-    return true;
+    } catch (_) {}
   }
+
+  // Admin credentials — hardcoded for security
+  static const _adminEmail = 'admin@pakrentals.com';
+  static const _adminUid = 't41DI9ZHowUAsk9pgyFd7iJrTsA3';
 
   // ── Register ───────────────────────────────────────────────────────────────
   Future<bool> register(Map<String, dynamic> data) async {
     state = state.copyWith(isLoading: true, error: null);
-    await Future.delayed(const Duration(milliseconds: 800));
+    try {
+      final userData = await FirebaseAuthService.register(
+        name: data['name'] ?? '',
+        email: data['email'] ?? '',
+        password: data['password'] ?? '',
+        phone: data['phone'] ?? '',
+      );
 
-    final user = UserModel(
-      id: (data['email'] as String).hashCode.abs() % 9000 + 1000,
-      name: data['name'] ?? 'New User',
-      email: data['email'] ?? '',
-      phone: data['phone'],
-      role: data['role'] ?? 'user',
-      isVerified: false,
-      city: null,
-    );
+      if (userData != null) {
+        state = state.copyWith(
+          isLoading: false,
+          user: UserModel.fromJson(userData),
+          isAuthenticated: true,
+        );
+        return true;
+      }
+      state = state.copyWith(
+          isLoading: false, error: 'Registration failed');
+      return false;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+      return false;
+    }
+  }
 
-    await _storage.saveToken('mock_token_${user.id}');
-    await _persistUser(user);
+  // ── Login ──────────────────────────────────────────────────────────────────
+  Future<bool> login(String email, String password) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final userData = await FirebaseAuthService.login(
+        email: email,
+        password: password,
+      );
 
-    state = state.copyWith(
-      isLoading: false,
-      user: user,
-      isAuthenticated: true,
-    );
-    return true;
+      if (userData != null) {
+        // Force admin role for admin UID or email
+        final isAdmin = FirebaseAuthService.currentUser?.uid == _adminUid ||
+            email.trim().toLowerCase() == _adminEmail;
+        if (isAdmin) userData['role'] = 'admin';
+
+        state = state.copyWith(
+          isLoading: false,
+          user: UserModel.fromJson(userData),
+          isAuthenticated: true,
+        );
+        return true;
+      }
+      state = state.copyWith(isLoading: false, error: 'Login failed');
+      return false;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+      return false;
+    }
   }
 
   // ── Update profile ─────────────────────────────────────────────────────────
   Future<bool> updateProfile(Map<String, dynamic> data) async {
     state = state.copyWith(isLoading: true, error: null);
-    await Future.delayed(const Duration(milliseconds: 500));
+    try {
+      await FirebaseAuthService.updateProfile(data);
 
-    final current = state.user!;
-    final updated = UserModel(
-      id: current.id,
-      name: data['name'] ?? current.name,
-      email: current.email,
-      phone: data['phone'] ?? current.phone,
-      role: current.role,
-      isVerified: current.isVerified,
-      city: data['city'] ?? current.city,
-      bio: data['bio'] ?? current.bio,
-      photo: data['photo'] ?? current.photo,
-      rating: current.rating,
-      reviewsCount: current.reviewsCount,
-    );
+      final current = state.user!;
+      final updated = UserModel(
+        id: current.id,
+        name: data['name'] ?? current.name,
+        email: current.email,
+        phone: data['phone'] ?? current.phone,
+        role: current.role,
+        isVerified: current.isVerified,
+        city: data['city'] ?? current.city,
+        bio: data['bio'] ?? current.bio,
+        photo: current.photo,
+        cnic: current.cnic,
+        cnicFrontPhoto: current.cnicFrontPhoto,
+        cnicBackPhoto: current.cnicBackPhoto,
+        cnicStatus: current.cnicStatus,
+        paymentMethods: current.paymentMethods,
+        rating: current.rating,
+        reviewsCount: current.reviewsCount,
+      );
 
-    await _persistUser(updated);
-    state = state.copyWith(isLoading: false, user: updated);
-    return true;
+      state = state.copyWith(isLoading: false, user: updated);
+      return true;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+      return false;
+    }
   }
 
-  // ── Payment Methods ────────────────────────────────────────────────────────
-  Future<bool> addPaymentMethod(SavedPaymentMethod method) async {
+  // ── Upload profile photo ───────────────────────────────────────────────────
+  Future<void> updatePhoto(String localPath) async {
+    final current = state.user;
+    if (current == null) return;
+
+    try {
+      // Upload to Firebase Storage
+      final url = await StorageService.uploadProfilePhoto(
+          current.id.toString(), localPath);
+
+      // Update Firestore
+      await FirebaseAuthService.updateProfile({'photo': url});
+
+      final updated = UserModel(
+        id: current.id,
+        name: current.name,
+        email: current.email,
+        phone: current.phone,
+        role: current.role,
+        isVerified: current.isVerified,
+        city: current.city,
+        bio: current.bio,
+        photo: url,
+        cnic: current.cnic,
+        cnicFrontPhoto: current.cnicFrontPhoto,
+        cnicBackPhoto: current.cnicBackPhoto,
+        cnicStatus: current.cnicStatus,
+        paymentMethods: current.paymentMethods,
+        rating: current.rating,
+        reviewsCount: current.reviewsCount,
+      );
+      state = state.copyWith(user: updated);
+    } catch (e) {
+      // Fallback to local path if upload fails
+      final updated = UserModel(
+        id: current.id,
+        name: current.name,
+        email: current.email,
+        phone: current.phone,
+        role: current.role,
+        isVerified: current.isVerified,
+        city: current.city,
+        bio: current.bio,
+        photo: localPath,
+        cnic: current.cnic,
+        cnicFrontPhoto: current.cnicFrontPhoto,
+        cnicBackPhoto: current.cnicBackPhoto,
+        cnicStatus: current.cnicStatus,
+        paymentMethods: current.paymentMethods,
+        rating: current.rating,
+        reviewsCount: current.reviewsCount,
+      );
+      state = state.copyWith(user: updated);
+    }
+  }
+
+  // ── Update CNIC ────────────────────────────────────────────────────────────
+  Future<bool> updateCnic({
+    required String cnicNumber,
+    required String frontPhotoPath,
+    required String backPhotoPath,
+  }) async {
     final current = state.user;
     if (current == null) return false;
 
     state = state.copyWith(isLoading: true);
-    await Future.delayed(const Duration(milliseconds: 500));
+    try {
+      // Upload CNIC photos to Storage
+      final urls = await StorageService.uploadCnicPhotos(
+        userId: current.id.toString(),
+        frontPath: frontPhotoPath,
+        backPath: backPhotoPath,
+      );
 
-    // If first method, make it default
+      // Update Firestore
+      await FirebaseAuthService.updateProfile({
+        'cnic': cnicNumber,
+        'cnic_front_photo': urls['front'],
+        'cnic_back_photo': urls['back'],
+        'cnic_status': 'pending',
+      });
+
+      final updated = UserModel(
+        id: current.id,
+        name: current.name,
+        email: current.email,
+        phone: current.phone,
+        role: current.role,
+        isVerified: current.isVerified,
+        city: current.city,
+        bio: current.bio,
+        photo: current.photo,
+        cnic: cnicNumber,
+        cnicFrontPhoto: urls['front'],
+        cnicBackPhoto: urls['back'],
+        cnicStatus: 'pending',
+        paymentMethods: current.paymentMethods,
+        rating: current.rating,
+        reviewsCount: current.reviewsCount,
+      );
+
+      state = state.copyWith(isLoading: false, user: updated);
+      return true;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+      return false;
+    }
+  }
+
+  // ── Payment methods ────────────────────────────────────────────────────────
+  Future<bool> addPaymentMethod(SavedPaymentMethod method) async {
+    final current = state.user;
+    if (current == null) return false;
+
     final isFirst = current.paymentMethods.isEmpty;
     final newMethod = SavedPaymentMethod(
       id: method.id,
@@ -218,10 +294,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
       isDefault: isFirst ? true : method.isDefault,
     );
 
-    final updated = _copyUserWith(current,
-        paymentMethods: [...current.paymentMethods, newMethod]);
-    await _persistUser(updated);
-    state = state.copyWith(isLoading: false, user: updated);
+    final methods = [...current.paymentMethods, newMethod];
+    await FirebaseAuthService.updateProfile({
+      'payment_methods':
+          methods.map((m) => m.toJson()).toList(),
+    });
+
+    final updated = _copyUserWith(current, paymentMethods: methods);
+    state = state.copyWith(user: updated);
     return true;
   }
 
@@ -229,12 +309,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
     final current = state.user;
     if (current == null) return;
 
-    var methods =
-        current.paymentMethods.where((m) => m.id != methodId).toList();
+    var methods = current.paymentMethods
+        .where((m) => m.id != methodId)
+        .toList();
 
-    // If removed method was default, make first remaining one default
-    final hadDefault =
-        current.paymentMethods.any((m) => m.id == methodId && m.isDefault);
+    final hadDefault = current.paymentMethods
+        .any((m) => m.id == methodId && m.isDefault);
     if (hadDefault && methods.isNotEmpty) {
       methods = [
         SavedPaymentMethod(
@@ -248,8 +328,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
       ];
     }
 
+    await FirebaseAuthService.updateProfile({
+      'payment_methods':
+          methods.map((m) => m.toJson()).toList(),
+    });
+
     final updated = _copyUserWith(current, paymentMethods: methods);
-    await _persistUser(updated);
     state = state.copyWith(user: updated);
   }
 
@@ -267,12 +351,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
     }).toList();
 
+    await FirebaseAuthService.updateProfile({
+      'payment_methods':
+          methods.map((m) => m.toJson()).toList(),
+    });
+
     final updated = _copyUserWith(current, paymentMethods: methods);
-    await _persistUser(updated);
     state = state.copyWith(user: updated);
   }
 
-  // Helper to copy user with new payment methods list
   UserModel _copyUserWith(UserModel u,
       {List<SavedPaymentMethod>? paymentMethods}) {
     return UserModel(
@@ -295,71 +382,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
     );
   }
 
-  // ── Update CNIC ────────────────────────────────────────────────────────────
-  Future<bool> updateCnic({
-    required String cnicNumber,
-    required String frontPhotoPath,
-    required String backPhotoPath,
-  }) async {
-    final current = state.user;
-    if (current == null) return false;
-
-    state = state.copyWith(isLoading: true);
-    await Future.delayed(const Duration(milliseconds: 800));
-
-    final updated = UserModel(
-      id: current.id,
-      name: current.name,
-      email: current.email,
-      phone: current.phone,
-      photo: current.photo,
-      cnic: cnicNumber,
-      cnicFrontPhoto: frontPhotoPath,
-      cnicBackPhoto: backPhotoPath,
-      cnicStatus: 'pending', // submitted — awaiting admin review
-      role: current.role,
-      isVerified: current.isVerified,
-      city: current.city,
-      bio: current.bio,
-      rating: current.rating,
-      reviewsCount: current.reviewsCount,
-    );
-
-    await _persistUser(updated);
-    state = state.copyWith(isLoading: false, user: updated);
-    return true;
-  }
-
-  // ── Update photo (local file path) ─────────────────────────────────────────
-  Future<void> updatePhoto(String localPath) async {
-    final current = state.user;
-    if (current == null) return;
-    final updated = UserModel(
-      id: current.id,
-      name: current.name,
-      email: current.email,
-      phone: current.phone,
-      role: current.role,
-      isVerified: current.isVerified,
-      city: current.city,
-      bio: current.bio,
-      photo: localPath,
-      rating: current.rating,
-      reviewsCount: current.reviewsCount,
-    );
-    await _persistUser(updated);
-    state = state.copyWith(user: updated);
-  }
-
   // ── Logout ─────────────────────────────────────────────────────────────────
   Future<void> logout() async {
-    await _storage.deleteToken();
-    await _clearUser();
+    await FirebaseAuthService.logout();
     state = const AuthState();
   }
 }
 
-final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
-  final storage = ref.watch(authStorageProvider);
-  return AuthNotifier(storage);
+final authProvider =
+    StateNotifierProvider<AuthNotifier, AuthState>((ref) {
+  return AuthNotifier();
 });

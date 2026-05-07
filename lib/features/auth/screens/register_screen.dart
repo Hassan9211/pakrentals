@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -26,7 +27,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _confirmCtrl = TextEditingController();
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
-  String _role = 'user';
+  bool _agreedToTerms = false;
+  bool _termsError = false; // shows red error if not agreed
 
   @override
   void dispose() {
@@ -39,7 +41,15 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 
   Future<void> _register() async {
-    if (!_formKey.currentState!.validate()) return;
+    // Validate form fields
+    final formValid = _formKey.currentState!.validate();
+
+    // Validate terms separately
+    if (!_agreedToTerms) {
+      setState(() => _termsError = true);
+    }
+
+    if (!formValid || !_agreedToTerms) return;
 
     final success = await ref.read(authProvider.notifier).register({
       'name': _nameCtrl.text.trim(),
@@ -47,18 +57,169 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       'phone': _phoneCtrl.text.trim(),
       'password': _passwordCtrl.text,
       'password_confirmation': _confirmCtrl.text,
-      'role': _role,
+      'role': 'user',
     });
 
     if (!mounted) return;
 
     if (success) {
-      // Router's refreshListenable auto-redirects, but we also push explicitly.
       context.go('/home');
     } else {
       final error = ref.read(authProvider).error;
       showSnackBar(context, error ?? 'Registration failed', isError: true);
     }
+  }
+
+  void _showTermsDialog() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.85,
+        maxChildSize: 0.95,
+        minChildSize: 0.5,
+        expand: false,
+        builder: (_, scrollCtrl) => Column(
+          children: [
+            // Handle
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            // Header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+              child: Row(
+                children: [
+                  Text(
+                    'Terms & Conditions',
+                    style: GoogleFonts.syne(
+                      color: AppColors.textPrimary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: AppColors.textMuted),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(color: AppColors.border, height: 1),
+            // Content
+            Expanded(
+              child: ListView(
+                controller: scrollCtrl,
+                padding: const EdgeInsets.all(20),
+                children: [
+                  _termsSection(
+                    '1. Acceptance of Terms',
+                    'By creating an account on PakRentals, you agree to be bound by these Terms and Conditions. If you do not agree, please do not use our platform.',
+                  ),
+                  _termsSection(
+                    '2. User Accounts',
+                    'You must provide accurate and complete information when creating your account. You are responsible for maintaining the confidentiality of your account credentials and for all activities that occur under your account.',
+                  ),
+                  _termsSection(
+                    '3. Listings & Rentals',
+                    'Hosts are responsible for the accuracy of their listings. All items listed must be legally owned by the host. Renters must use rented items responsibly and return them in the same condition.',
+                  ),
+                  _termsSection(
+                    '4. Payments',
+                    'All payments are processed securely through our platform. PakRentals charges a service fee on each transaction. Refunds are subject to our cancellation policy.',
+                  ),
+                  _termsSection(
+                    '5. Prohibited Activities',
+                    'Users may not list illegal items, engage in fraudulent activity, harass other users, or misuse the platform in any way. Violations may result in account suspension.',
+                  ),
+                  _termsSection(
+                    '6. Liability',
+                    'PakRentals acts as a marketplace and is not responsible for the condition of listed items or disputes between users. We encourage users to verify items before completing transactions.',
+                  ),
+                  _termsSection(
+                    '7. Privacy',
+                    'Your personal information is collected and used in accordance with our Privacy Policy. We do not sell your data to third parties.',
+                  ),
+                  _termsSection(
+                    '8. CNIC Verification',
+                    'For security purposes, hosts may be required to verify their identity via CNIC. This information is stored securely and used only for verification purposes.',
+                  ),
+                  _termsSection(
+                    '9. Dispute Resolution',
+                    'In case of disputes, users should first attempt to resolve issues directly. PakRentals provides a dispute resolution mechanism through the Reports section.',
+                  ),
+                  _termsSection(
+                    '10. Changes to Terms',
+                    'PakRentals reserves the right to modify these terms at any time. Continued use of the platform after changes constitutes acceptance of the new terms.',
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Last updated: May 2025',
+                    style: const TextStyle(
+                        color: AppColors.textMuted, fontSize: 11),
+                  ),
+                  const SizedBox(height: 20),
+                  // Agree button inside sheet
+                  ElevatedButton(
+                    onPressed: () {
+                      setState(() {
+                        _agreedToTerms = true;
+                        _termsError = false;
+                      });
+                      Navigator.pop(context);
+                      showSnackBar(context, 'Terms accepted ✓');
+                    },
+                    child: const Text('I Agree to Terms & Conditions'),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _termsSection(String title, String body) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: GoogleFonts.syne(
+              color: AppColors.textPrimary,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            body,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 13,
+              height: 1.6,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -94,29 +255,24 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             ),
                           ],
                         ),
-                        child: const Icon(
-                          Icons.home_work_outlined,
-                          color: Colors.white,
-                          size: 30,
-                        ),
+                        child: const Icon(Icons.home_work_outlined,
+                            color: Colors.white, size: 30),
                       ).animate().scale(
                             begin: const Offset(0.5, 0.5),
                             duration: 600.ms,
                             curve: Curves.elasticOut,
                           ),
                       const SizedBox(height: 12),
-                      NeonGradientText(
-                        'PakRentals',
-                        fontSize: 28,
-                        fontWeight: FontWeight.w800,
-                      ).animate().fadeIn(delay: 200.ms),
+                      NeonGradientText('PakRentals',
+                              fontSize: 28, fontWeight: FontWeight.w800)
+                          .animate()
+                          .fadeIn(delay: 200.ms),
                     ],
                   ),
                 ),
 
                 const SizedBox(height: 28),
 
-                // ── Heading ───────────────────────────────────────────
                 Text(
                   'Create Account',
                   style: GoogleFonts.syne(
@@ -129,14 +285,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 Text(
                   "Join Pakistan's rental community",
                   style: GoogleFonts.spaceGrotesk(
-                    color: AppColors.textMuted,
-                    fontSize: 13,
-                  ),
+                      color: AppColors.textMuted, fontSize: 13),
                 ).animate().fadeIn(delay: 380.ms),
 
                 const SizedBox(height: 24),
 
-                // ── Form ──────────────────────────────────────────────
                 Form(
                   key: _formKey,
                   child: Column(
@@ -195,14 +348,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           labelText: 'Password',
                           prefixIcon: const Icon(Icons.lock_outlined),
                           suffixIcon: IconButton(
-                            icon: Icon(
-                              _obscurePassword
-                                  ? Icons.visibility_outlined
-                                  : Icons.visibility_off_outlined,
-                            ),
+                            icon: Icon(_obscurePassword
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined),
                             onPressed: () => setState(
-                              () => _obscurePassword = !_obscurePassword,
-                            ),
+                                () => _obscurePassword = !_obscurePassword),
                           ),
                         ),
                         validator: Validators.password,
@@ -220,14 +370,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           labelText: 'Confirm Password',
                           prefixIcon: const Icon(Icons.lock_outlined),
                           suffixIcon: IconButton(
-                            icon: Icon(
-                              _obscureConfirm
-                                  ? Icons.visibility_outlined
-                                  : Icons.visibility_off_outlined,
-                            ),
+                            icon: Icon(_obscureConfirm
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined),
                             onPressed: () => setState(
-                              () => _obscureConfirm = !_obscureConfirm,
-                            ),
+                                () => _obscureConfirm = !_obscureConfirm),
                           ),
                         ),
                         validator: (v) =>
@@ -236,43 +383,56 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         onFieldSubmitted: (_) => _register(),
                       ).animate().fadeIn(delay: 620.ms).slideY(begin: 0.12),
 
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
 
-                      // ── Role selector ─────────────────────────────
+                      // ── Terms & Conditions checkbox ────────────────
+                      _buildTermsCheckbox(),
+
+                      const SizedBox(height: 20),
+
+                      // ── Info note ─────────────────────────────────
                       Container(
-                        padding: const EdgeInsets.all(4),
+                        padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: AppColors.surfaceVariant,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.border),
+                          color: AppColors.neonCyan.withOpacity(0.06),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                              color: AppColors.neonCyan.withOpacity(0.2)),
                         ),
                         child: Row(
                           children: [
-                            _roleButton(
-                                'user', 'Renter', Icons.person_outlined),
-                            _roleButton(
-                                'host', 'Host / Owner', Icons.home_outlined),
+                            const Icon(Icons.info_outline,
+                                color: AppColors.neonCyan, size: 16),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'You can list items and book items with one account. Enter Host Code in profile to unlock host features.',
+                                style: GoogleFonts.spaceGrotesk(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 11,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ),
                           ],
                         ),
-                      ).animate().fadeIn(delay: 660.ms),
+                      ).animate().fadeIn(delay: 680.ms),
 
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 20),
 
-                      // ── Submit ────────────────────────────────────
                       PrimaryGlowButton(
                         label: 'Create Account',
                         onPressed: _register,
                         isLoading: isLoading,
                         width: double.infinity,
                         icon: Icons.person_add_outlined,
-                      ).animate().fadeIn(delay: 700.ms),
+                      ).animate().fadeIn(delay: 720.ms),
                     ],
                   ),
                 ),
 
                 const SizedBox(height: 24),
 
-                // ── Login link ────────────────────────────────────────
                 Center(
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -280,9 +440,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       Text(
                         'Already have an account?  ',
                         style: GoogleFonts.spaceGrotesk(
-                          color: AppColors.textMuted,
-                          fontSize: 14,
-                        ),
+                            color: AppColors.textMuted, fontSize: 14),
                       ),
                       GestureDetector(
                         onTap: () => context.go('/login'),
@@ -297,7 +455,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       ),
                     ],
                   ),
-                ).animate().fadeIn(delay: 750.ms),
+                ).animate().fadeIn(delay: 760.ms),
 
                 const SizedBox(height: 32),
               ],
@@ -308,40 +466,111 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     );
   }
 
-  Widget _roleButton(String value, String label, IconData icon) {
-    final isSelected = _role == value;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _role = value),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            gradient: isSelected ? AppColors.primaryGradient : null,
-            borderRadius: BorderRadius.circular(10),
-          ),
+  // ── Terms & Conditions checkbox ──────────────────────────────────────────
+  Widget _buildTermsCheckbox() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GestureDetector(
+          onTap: () {
+            setState(() {
+              _agreedToTerms = !_agreedToTerms;
+              if (_agreedToTerms) _termsError = false;
+            });
+          },
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                icon,
-                size: 16,
-                color: isSelected ? Colors.white : AppColors.textMuted,
+              // Animated checkbox
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 22,
+                height: 22,
+                margin: const EdgeInsets.only(top: 1),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(6),
+                  gradient: _agreedToTerms ? AppColors.primaryGradient : null,
+                  color: _agreedToTerms ? null : Colors.transparent,
+                  border: Border.all(
+                    color: _termsError
+                        ? AppColors.error
+                        : _agreedToTerms
+                            ? Colors.transparent
+                            : AppColors.border,
+                    width: 1.5,
+                  ),
+                ),
+                child: _agreedToTerms
+                    ? const Icon(Icons.check,
+                        color: Colors.white, size: 14)
+                    : null,
               ),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  color: isSelected ? Colors.white : AppColors.textMuted,
-                  fontWeight:
-                      isSelected ? FontWeight.w700 : FontWeight.w400,
-                  fontSize: 13,
+              const SizedBox(width: 10),
+              // Text with tappable links
+              Expanded(
+                child: RichText(
+                  text: TextSpan(
+                    style: GoogleFonts.spaceGrotesk(
+                      color: AppColors.textSecondary,
+                      fontSize: 13,
+                      height: 1.5,
+                    ),
+                    children: [
+                      const TextSpan(text: 'I have read and agree to the '),
+                      TextSpan(
+                        text: 'Terms & Conditions',
+                        style: GoogleFonts.spaceGrotesk(
+                          color: AppColors.neonCyan,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          decoration: TextDecoration.underline,
+                          decorationColor: AppColors.neonCyan,
+                        ),
+                        recognizer: TapGestureRecognizer()
+                          ..onTap = _showTermsDialog,
+                      ),
+                      const TextSpan(text: ' and '),
+                      TextSpan(
+                        text: 'Privacy Policy',
+                        style: GoogleFonts.spaceGrotesk(
+                          color: AppColors.neonCyan,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          decoration: TextDecoration.underline,
+                          decorationColor: AppColors.neonCyan,
+                        ),
+                        recognizer: TapGestureRecognizer()
+                          ..onTap = _showTermsDialog,
+                      ),
+                      const TextSpan(text: ' of PakRentals.'),
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
         ),
-      ),
-    );
+
+        // ── Error message ──────────────────────────────────────────
+        if (_termsError)
+          Padding(
+            padding: const EdgeInsets.only(top: 6, left: 32),
+            child: Row(
+              children: [
+                const Icon(Icons.error_outline,
+                    color: AppColors.error, size: 14),
+                const SizedBox(width: 5),
+                Text(
+                  'You must agree to the Terms & Conditions',
+                  style: GoogleFonts.spaceGrotesk(
+                    color: AppColors.error,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ).animate().fadeIn(duration: 200.ms).slideY(begin: -0.2),
+      ],
+    ).animate().fadeIn(delay: 650.ms);
   }
 }

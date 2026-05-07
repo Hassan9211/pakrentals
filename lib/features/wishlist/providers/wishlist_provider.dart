@@ -1,11 +1,12 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../../../core/mock/mock_data.dart';
 import '../../listings/models/listing_model.dart';
 
 class WishlistState {
   final List<ListingModel> listings;
-  final Set<int> savedIds; // exposed so ListingCard can watch it
+  final Set<String> savedIds;  // Firestore string IDs
   final bool isLoading;
 
   const WishlistState({
@@ -16,7 +17,7 @@ class WishlistState {
 
   WishlistState copyWith({
     List<ListingModel>? listings,
-    Set<int>? savedIds,
+    Set<String>? savedIds,
     bool? isLoading,
   }) {
     return WishlistState(
@@ -28,63 +29,112 @@ class WishlistState {
 }
 
 class WishlistNotifier extends StateNotifier<WishlistState> {
-  static const _prefsKey = 'wishlist_ids';
+  static final _db = FirebaseFirestore.instance;
 
   WishlistNotifier() : super(const WishlistState()) {
     _load();
   }
 
-  // ── Load saved IDs from SharedPreferences ─────────────────────────────────
+  String get _uid => FirebaseAuth.instance.currentUser?.uid ?? '';
+
   Future<void> _load() async {
+    if (_uid.isEmpty) return;
     state = state.copyWith(isLoading: true);
 
-    // Restore persisted IDs
-    final prefs = await SharedPreferences.getInstance();
-    final stored = prefs.getStringList(_prefsKey);
-    final Set<int> ids = {};
+    try {
+      final doc = await _db
+          .collection('users')
+          .doc(_uid)
+          .get()
+          .timeout(const Duration(seconds: 8));
 
-    if (stored != null) {
-      ids.addAll(stored.map((s) => int.tryParse(s) ?? -1).where((i) => i > 0));
-    } else {
-      // First run — seed from mock data
-      for (final l in mockListings) {
-        if (l.isSaved == true) ids.add(l.id);
+      final data = doc.data() ?? {};
+      final ids = Set<String>.from(
+          (data['wishlist'] as List<dynamic>? ?? []).map((e) => e.toString()));
+
+      // Fetch listing details for each saved ID
+      final listings = <ListingModel>[];
+      for (final id in ids) {
+        try {
+          final ld = await _db
+              .collection('listings')
+              .doc(id)
+              .get()
+              .timeout(const Duration(seconds: 5));
+          if (ld.exists) {
+            listings.add(ListingModel.fromJson(
+                {'id': ld.id, ...ld.data()!}));
+          }
+        } catch (_) {}
       }
-      await _persist(ids);
+
+      state = state.copyWith(
+          isLoading: false, savedIds: ids, listings: listings);
+    } catch (e) {
+      debugPrint('WishlistNotifier error: $e');
+      state = state.copyWith(isLoading: false);
     }
-
-    final saved = mockListings.where((l) => ids.contains(l.id)).toList();
-    state = state.copyWith(isLoading: false, savedIds: ids, listings: saved);
   }
 
-  // ── Persist IDs to SharedPreferences ──────────────────────────────────────
-  Future<void> _persist(Set<int> ids) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(_prefsKey, ids.map((i) => i.toString()).toList());
-  }
-
-  // ── Toggle a listing ───────────────────────────────────────────────────────
-  Future<void> toggle(int listingId) async {
-    final ids = Set<int>.from(state.savedIds);
-
-    if (ids.contains(listingId)) {
-      ids.remove(listingId);
-    } else {
-      ids.add(listingId);
-    }
-
-    // Update state immediately so UI reacts instantly
-    final saved = mockListings.where((l) => ids.contains(l.id)).toList();
-    state = state.copyWith(savedIds: ids, listings: saved);
-
-    // Persist in background
-    await _persist(ids);
-  }
-
-  // ── Public reload ──────────────────────────────────────────────────────────
   Future<void> load() => _load();
 
-  bool isSaved(int listingId) => state.savedIds.contains(listingId);
+  Future<void> toggle(int listingIntId) async {
+    if (_uid.isEmpty) return;
+
+    // Find the firestoreId from current listings or by int id hash
+    String? firestoreId;
+    for (final l in state.listings) {
+      if (l.id == listingIntId) {
+        firestoreId = l.firestoreId;
+        break;
+      }
+    }
+
+    // If not in wishlist listings, search browse listings
+    firestoreId ??= _findFirestoreId(listingIntId);
+    if (firestoreId == null) return;
+
+    final ids = Set<String>.from(state.savedIds);
+    if (ids.contains(firestoreId)) {
+      ids.remove(firestoreId);
+    } else {
+      ids.add(firestoreId);
+    }
+
+    // Optimistic update
+    state = state.copyWith(savedIds: ids);
+
+    // Persist to Firestore
+    try {
+      await _db.collection('users').doc(_uid).update({
+        'wishlist': ids.toList(),
+      });
+    } catch (e) {
+      debugPrint('Wishlist toggle error: $e');
+    }
+
+    await _load();
+  }
+
+  // Check if a listing (by int id) is saved
+  bool isSaved(int listingIntId) {
+    // Check by matching int id to firestoreId hash
+    for (final l in state.listings) {
+      if (l.id == listingIntId) {
+        return state.savedIds.contains(l.firestoreId);
+      }
+    }
+    final fid = _findFirestoreId(listingIntId);
+    return fid != null && state.savedIds.contains(fid);
+  }
+
+  String? _findFirestoreId(int intId) {
+    // The int id is a hash of the firestoreId string
+    for (final id in state.savedIds) {
+      if (id.hashCode.abs() == intId) return id;
+    }
+    return null;
+  }
 }
 
 final wishlistProvider =

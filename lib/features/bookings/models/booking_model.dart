@@ -3,9 +3,10 @@ import '../../listings/models/listing_model.dart';
 
 class BookingModel {
   final int id;
+  final String? firestoreId;   // Firestore document ID for updates
   final int listingId;
   final int renterId;
-  final int hostId;        // explicit host ID — reliable for matching
+  final int hostId;
   final String startDate;
   final String endDate;
   final int totalDays;
@@ -20,6 +21,7 @@ class BookingModel {
 
   BookingModel({
     required this.id,
+    this.firestoreId,
     required this.listingId,
     required this.renterId,
     required this.hostId,
@@ -39,6 +41,7 @@ class BookingModel {
   factory BookingModel.fromJson(Map<String, dynamic> json) {
     return BookingModel(
       id: json['id'] ?? 0,
+      firestoreId: json['firestore_id'],
       listingId: json['listing_id'] ?? 0,
       renterId: json['renter_id'] ?? 0,
       hostId: json['host_id'] ?? 0,

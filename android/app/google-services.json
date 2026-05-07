@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "898922602575",
+    "project_id": "project-3deabcf5-1dff-4acc-a9e",
+    "storage_bucket": "project-3deabcf5-1dff-4acc-a9e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:898922602575:android:140018b5ea2ebe30570a3a",
+        "android_client_info": {
+          "package_name": "com.PakRentals.PakRentals"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBQuwxDcRxWPN0Gl_WyctcV7NHkV-Zrqww"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

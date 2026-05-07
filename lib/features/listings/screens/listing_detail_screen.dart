@@ -5,9 +5,9 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
-import '../../../core/api/api_client.dart';
-import '../../../core/mock/mock_data.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/helpers.dart';
 import '../../../shared/widgets/glass_card.dart';
@@ -159,24 +159,33 @@ class _ListingDetailScreenState extends ConsumerState<ListingDetailScreen> {
               PrimaryGlowButton(
                 label: 'Submit Review',
                 width: double.infinity,
-                onPressed: () {
-                  // Add to mock reviews
+                onPressed: () async {
                   final user = ref.read(authProvider).user;
-                  final newReview = ReviewModel(
-                    id: mockReviews.length + 100,
-                    listingId: listingId,
-                    userId: user?.id ?? 1,
-                    rating: rating,
-                    comment: commentCtrl.text.trim().isEmpty
-                        ? null
-                        : commentCtrl.text.trim(),
-                    user: user,
-                    createdAt: DateTime.now().toIso8601String(),
-                  );
-                  mockReviews.add(newReview);
-                  // Reload listing detail
-                  ref.read(listingDetailProvider(listingId).notifier).load();
-                  Navigator.pop(ctx);
+                  final uid =
+                      FirebaseAuth.instance.currentUser?.uid ?? '';
+                  // Save to Firestore
+                  try {
+                    final listing = ref
+                        .read(listingDetailProvider(listingId))
+                        .listing;
+                    await FirebaseFirestore.instance
+                        .collection('reviews')
+                        .add({
+                      'listing_id':
+                          listing?.firestoreId ?? listingId.toString(),
+                      'user_id': uid,
+                      'user_name': user?.name ?? 'Anonymous',
+                      'rating': rating,
+                      'comment': commentCtrl.text.trim().isEmpty
+                          ? null
+                          : commentCtrl.text.trim(),
+                      'created_at': FieldValue.serverTimestamp(),
+                    });
+                  } catch (_) {}
+                  ref
+                      .read(listingDetailProvider(listingId).notifier)
+                      .load();
+                  if (ctx.mounted) Navigator.pop(ctx);
                   showSnackBar(context, 'Review submitted! ⭐');
                 },
               ),
@@ -666,11 +675,15 @@ class _ListingDetailScreenState extends ConsumerState<ListingDetailScreen> {
   Widget _buildBottomBar(
       BuildContext context, dynamic listing, dynamic authState) {
     final currentUser = authState.user;
+
+    // Check if current user owns this listing
+    // Compare by ID and also by email as fallback (Firebase UID vs int ID)
     final isOwnListing = currentUser != null &&
         listing.host != null &&
-        currentUser.id == listing.host!.id;
+        (currentUser.id == listing.host!.id ||
+            currentUser.email == listing.host!.email);
 
-    // Host — manage button
+    // ── Owner — show manage button, block booking ──────────────────────
     if (isOwnListing) {
       return Container(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
@@ -684,9 +697,18 @@ class _ListingDetailScreenState extends ConsumerState<ListingDetailScreen> {
                 color: AppColors.neonViolet, size: 20),
             const SizedBox(width: 10),
             Expanded(
-              child: Text('This is your listing',
-                  style: GoogleFonts.spaceGrotesk(
-                      color: AppColors.textSecondary, fontSize: 13)),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('This is your listing',
+                      style: GoogleFonts.spaceGrotesk(
+                          color: AppColors.textSecondary, fontSize: 13)),
+                  Text('You cannot book your own listing',
+                      style: const TextStyle(
+                          color: AppColors.textMuted, fontSize: 11)),
+                ],
+              ),
             ),
             OutlinedButton(
               onPressed: () => context.push('/my-listings'),
@@ -701,7 +723,7 @@ class _ListingDetailScreenState extends ConsumerState<ListingDetailScreen> {
       );
     }
 
-    // Renter — price + Book Now + Message
+    // ── Renter — price + Message + Book Now ────────────────────────────
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
       decoration: BoxDecoration(
@@ -723,14 +745,16 @@ class _ListingDetailScreenState extends ConsumerState<ListingDetailScreen> {
                     fontWeight: FontWeight.w800),
               ),
               const Text('per day',
-                  style: TextStyle(color: AppColors.textMuted, fontSize: 10)),
+                  style:
+                      TextStyle(color: AppColors.textMuted, fontSize: 10)),
             ],
           ),
           const SizedBox(width: 12),
           // Message host
           if (listing.host != null)
             GestureDetector(
-              onTap: () => _messageHost(context, listing.host!.id, listing.id),
+              onTap: () =>
+                  _messageHost(context, listing.host!.id, listing.id),
               child: Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(

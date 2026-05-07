@@ -70,8 +70,13 @@ class UserModel {
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
+    // Firebase uses string UIDs, mock uses int IDs
+    final rawId = json['id'];
+    final id = rawId is int
+        ? rawId
+        : (rawId?.toString().hashCode.abs() ?? 0);
     return UserModel(
-      id: json['id'] ?? 0,
+      id: id,
       name: json['name'] ?? '',
       email: json['email'] ?? '',
       phone: json['phone'],
@@ -114,7 +119,7 @@ class UserModel {
   };
 
   bool get isAdmin => role == 'admin';
-  bool get isHost => role == 'host' || role == 'admin';
+  bool get isHost => role == 'admin'; // admin = host/owner
   bool get isCnicVerified => cnicStatus == 'verified';
   bool get isCnicPending => cnicStatus == 'pending';
 

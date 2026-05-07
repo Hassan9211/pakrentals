@@ -5,9 +5,9 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:image_picker/image_picker.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/helpers.dart';
+import '../../../shared/widgets/image_source_sheet.dart';
 import '../../../shared/widgets/primary_glow_button.dart';
 import '../../auth/providers/auth_provider.dart';
 
@@ -42,66 +42,21 @@ class _CnicScreenState extends ConsumerState<CnicScreen> {
 
   // ── Pick photo ─────────────────────────────────────────────────────────────
   Future<void> _pickPhoto(bool isFront) async {
-    final picker = ImagePicker();
-    final source = await _showSourceDialog();
-    if (source == null) return;
-
-    final file = await picker.pickImage(
-      source: source,
+    final path = await pickImageWithSource(
+      context,
       imageQuality: 85,
       maxWidth: 1200,
+      maxHeight: 1200,
     );
-    if (file == null) return;
+    if (path == null) return;
 
     setState(() {
       if (isFront) {
-        _frontPhoto = File(file.path);
+        _frontPhoto = File(path);
       } else {
-        _backPhoto = File(file.path);
+        _backPhoto = File(path);
       }
     });
-  }
-
-  Future<ImageSource?> _showSourceDialog() async {
-    return showModalBottomSheet<ImageSource>(
-      context: context,
-      backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (_) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 8),
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppColors.border,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 16),
-            ListTile(
-              leading: const Icon(Icons.camera_alt_outlined,
-                  color: AppColors.neonCyan),
-              title: const Text('Take Photo',
-                  style: TextStyle(color: AppColors.textPrimary)),
-              onTap: () => Navigator.pop(context, ImageSource.camera),
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library_outlined,
-                  color: AppColors.neonCyan),
-              title: const Text('Choose from Gallery',
-                  style: TextStyle(color: AppColors.textPrimary)),
-              onTap: () => Navigator.pop(context, ImageSource.gallery),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
   }
 
   // ── Validate CNIC format ───────────────────────────────────────────────────

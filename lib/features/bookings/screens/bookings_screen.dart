@@ -42,7 +42,7 @@ class BookingsScreen extends ConsumerWidget {
             ? const Center(
                 child: CircularProgressIndicator(color: AppColors.neonCyan))
             : isHost
-                // HOST — only sees requests on their listings
+                // ADMIN — only sees requests on their listings
                 ? _BookingList(
                     bookings: state.hostRequests,
                     isHost: true,
@@ -266,7 +266,7 @@ class _BookingCard extends ConsumerWidget {
   }
 
   bool _hasActions() {
-    // HOST: show Approve/Reject only for pending requests
+    // ADMIN: show Approve/Reject only for pending requests
     if (isHost && booking.status == 'pending') return true;
     // RENTER: show Pay Now only for approved bookings
     if (!isHost && booking.status == 'approved') return true;

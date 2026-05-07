@@ -1,4 +1,4 @@
-package com.example.pakrentals
+package com.PakRentals.PakRentals
 
 import io.flutter.embedding.android.FlutterFragmentActivity
 
