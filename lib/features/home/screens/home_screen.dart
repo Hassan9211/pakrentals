@@ -118,11 +118,13 @@ class HomeScreen extends ConsumerWidget {
                       ? _buildCategoryShimmer()
                       : _buildCategories(context, homeState.categories),
 
-                  // Featured Listings
+                  // Featured / Latest Listings
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 28, 20, 12),
                     child: SectionHeader(
-                      title: 'Featured Listings',
+                      title: homeState.featuredListings.any((l) => l.isFeatured)
+                          ? 'Featured Listings'
+                          : 'Latest Listings',
                       subtitle: 'Top picks for you',
                       actionLabel: 'View All',
                       onAction: () => context.push('/browse'),
@@ -396,7 +398,7 @@ class HomeScreen extends ConsumerWidget {
         padding: EdgeInsets.all(20),
         child: Center(
           child: Text(
-            'No featured listings',
+            'No listings yet',
             style: TextStyle(color: AppColors.textMuted),
           ),
         ),

@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,14 +9,31 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/helpers.dart';
 import '../../../shared/widgets/neon_gradient_text.dart';
 import '../../../shared/widgets/primary_glow_button.dart';
-import 'create_listing_screen.dart';
+import '../models/listing_model.dart';
+
+// ── Firestore-backed my listings ──────────────────────────────────────────────
+final myListingsProvider =
+    FutureProvider<List<ListingModel>>((ref) async {
+  final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+  if (uid.isEmpty) return [];
+
+  final snap = await FirebaseFirestore.instance
+      .collection('listings')
+      .where('host_id', isEqualTo: uid)
+      .get()
+      .timeout(const Duration(seconds: 10));
+
+  return snap.docs
+      .map((doc) => ListingModel.fromJson({'id': doc.id, ...doc.data()}))
+      .toList();
+});
 
 class MyListingsScreen extends ConsumerWidget {
   const MyListingsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final listings = ref.watch(myListingsProvider);
+    final listingsAsync = ref.watch(myListingsProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -25,49 +44,112 @@ class MyListingsScreen extends ConsumerWidget {
           onPressed: () => context.go('/home'),
         ),
         actions: [
-          if (listings.isNotEmpty)
-            IconButton(
-              icon: const Icon(Icons.add),
-              onPressed: () => context.push('/create-listing'),
-              tooltip: 'Add new listing',
-            ),
+          IconButton(
+            icon: const Icon(Icons.refresh_outlined),
+            onPressed: () => ref.invalidate(myListingsProvider),
+          ),
+          IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: () async {
+              await context.push('/create-listing');
+              ref.invalidate(myListingsProvider);
+            },
+          ),
         ],
       ),
-      body: listings.isEmpty
-          ? _buildEmpty(context)
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: listings.length,
-              itemBuilder: (context, index) {
-                final listing = listings[index];
-                return _MyListingCard(
-                  title: listing.title,
-                  city: listing.city,
-                  pricePerDay: listing.pricePerDay,
-                  status: listing.status,
-                  imagePath: listing.images.isNotEmpty
-                      ? listing.images.first
-                      : null,
-                  onTap: () => context.push('/listing/${listing.id}'),
-                );
-              },
-            ),
-      floatingActionButton: listings.isNotEmpty
-          ? FloatingActionButton.extended(
-              onPressed: () => context.push('/create-listing'),
-              backgroundColor: AppColors.neonCyan,
-              foregroundColor: AppColors.background,
-              icon: const Icon(Icons.add),
-              label: Text(
-                'New Listing',
-                style: GoogleFonts.spaceGrotesk(fontWeight: FontWeight.w700),
+      body: listingsAsync.when(
+        loading: () => const Center(
+            child: CircularProgressIndicator(color: AppColors.neonCyan)),
+        error: (e, _) => Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline,
+                  color: AppColors.error, size: 48),
+              const SizedBox(height: 12),
+              Text('Error loading listings',
+                  style: const TextStyle(color: AppColors.textMuted)),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => ref.invalidate(myListingsProvider),
+                child: const Text('Retry'),
               ),
-            )
-          : null,
+            ],
+          ),
+        ),
+        data: (listings) => listings.isEmpty
+            ? _buildEmpty(context, ref)
+            : RefreshIndicator(
+                onRefresh: () async => ref.invalidate(myListingsProvider),
+                color: AppColors.neonCyan,
+                backgroundColor: AppColors.surface,
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: listings.length,
+                  itemBuilder: (context, index) {
+                    final listing = listings[index];
+                    return _MyListingCard(
+                      listing: listing,
+                      onTap: () => context.push('/listing/${listing.id}'),
+                      onDelete: () =>
+                          _confirmDelete(context, ref, listing),
+                    );
+                  },
+                ),
+              ),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () async {
+          await context.push('/create-listing');
+          ref.invalidate(myListingsProvider);
+        },
+        backgroundColor: AppColors.neonCyan,
+        foregroundColor: AppColors.background,
+        icon: const Icon(Icons.add),
+        label: Text('New Listing',
+            style: GoogleFonts.spaceGrotesk(fontWeight: FontWeight.w700)),
+      ),
     );
   }
 
-  Widget _buildEmpty(BuildContext context) {
+  void _confirmDelete(
+      BuildContext context, WidgetRef ref, ListingModel listing) {
+    showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Delete Listing',
+            style: GoogleFonts.syne(color: AppColors.textPrimary)),
+        content: Text('Delete "${listing.title}"? This cannot be undone.',
+            style: const TextStyle(color: AppColors.textSecondary)),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel',
+                  style: TextStyle(color: AppColors.textMuted))),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Delete',
+                  style: TextStyle(color: AppColors.error))),
+        ],
+      ),
+    ).then((confirmed) async {
+      if (confirmed != true) return;
+      final fid = listing.firestoreId;
+      if (fid != null) {
+        await FirebaseFirestore.instance
+            .collection('listings')
+            .doc(fid)
+            .delete();
+        ref.invalidate(myListingsProvider);
+        if (context.mounted) showSnackBar(context, 'Listing deleted');
+      }
+    });
+  }
+
+  Widget _buildEmpty(BuildContext context, WidgetRef ref) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -88,58 +170,29 @@ class MyListingsScreen extends ConsumerWidget {
                   ),
                 ],
               ),
-              child: const Icon(
-                Icons.home_work_outlined,
-                color: Colors.white,
-                size: 48,
-              ),
+              child: const Icon(Icons.home_work_outlined,
+                  color: Colors.white, size: 48),
             ),
             const SizedBox(height: 24),
-            NeonGradientText(
-              'Start Earning Today',
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              textAlign: TextAlign.center,
-            ),
+            NeonGradientText('Start Earning Today',
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                textAlign: TextAlign.center),
             const SizedBox(height: 10),
             Text(
               'List your car, camera, tools, or any item and earn money from people nearby.',
               style: GoogleFonts.spaceGrotesk(
-                color: AppColors.textSecondary,
-                fontSize: 14,
-                height: 1.6,
-              ),
+                  color: AppColors.textSecondary, fontSize: 14, height: 1.6),
               textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            ...[
-              ('💰', 'Earn passive income'),
-              ('🔒', 'Secure payments'),
-              ('⭐', 'Build your reputation'),
-            ].map(
-              (item) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(item.$1, style: const TextStyle(fontSize: 16)),
-                    const SizedBox(width: 8),
-                    Text(
-                      item.$2,
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             ),
             const SizedBox(height: 28),
             PrimaryGlowButton(
               label: 'Create Your First Listing',
               icon: Icons.add_circle_outline,
-              onPressed: () => context.push('/create-listing'),
+              onPressed: () async {
+                await context.push('/create-listing');
+                ref.invalidate(myListingsProvider);
+              },
               width: double.infinity,
             ),
           ],
@@ -149,22 +202,24 @@ class MyListingsScreen extends ConsumerWidget {
   }
 }
 
-// ── Individual listing card ───────────────────────────────────────────────────
+void showSnackBar(BuildContext context, String msg, {bool isError = false}) {
+  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+    content: Text(msg),
+    backgroundColor: isError ? AppColors.error : AppColors.neonGreen,
+    behavior: SnackBarBehavior.floating,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+  ));
+}
+
 class _MyListingCard extends StatelessWidget {
-  final String title;
-  final String city;
-  final double pricePerDay;
-  final String status;
-  final String? imagePath;
+  final ListingModel listing;
   final VoidCallback onTap;
+  final VoidCallback onDelete;
 
   const _MyListingCard({
-    required this.title,
-    required this.city,
-    required this.pricePerDay,
-    required this.status,
+    required this.listing,
     required this.onTap,
-    this.imagePath,
+    required this.onDelete,
   });
 
   @override
@@ -181,7 +236,6 @@ class _MyListingCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // Thumbnail
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
               child: SizedBox(
@@ -191,63 +245,39 @@ class _MyListingCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            // Info
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: GoogleFonts.syne(
-                      color: AppColors.textPrimary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  Text(listing.title,
+                      style: GoogleFonts.syne(
+                          color: AppColors.textPrimary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      const Icon(Icons.location_on_outlined,
-                          color: AppColors.textMuted, size: 12),
-                      const SizedBox(width: 3),
-                      Text(
-                        city,
+                  Row(children: [
+                    const Icon(Icons.location_on_outlined,
+                        color: AppColors.textMuted, size: 12),
+                    const SizedBox(width: 3),
+                    Text(listing.city,
                         style: const TextStyle(
-                            color: AppColors.textMuted, fontSize: 12),
-                      ),
-                    ],
-                  ),
+                            color: AppColors.textMuted, fontSize: 12)),
+                  ]),
                   const SizedBox(height: 6),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        '${formatPrice(pricePerDay)}/day',
-                        style: GoogleFonts.spaceGrotesk(
-                          color: AppColors.neonCyan,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: AppColors.neonGreen.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                              color: AppColors.neonGreen.withOpacity(0.4)),
-                        ),
-                        child: Text(
-                          status.toUpperCase(),
-                          style: const TextStyle(
-                            color: AppColors.neonGreen,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
+                      Text('${formatPrice(listing.pricePerDay)}/day',
+                          style: GoogleFonts.spaceGrotesk(
+                              color: AppColors.neonCyan,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700)),
+                      GestureDetector(
+                        onTap: onDelete,
+                        child: const Icon(Icons.delete_outline,
+                            color: AppColors.error, size: 18),
                       ),
                     ],
                   ),
@@ -263,35 +293,27 @@ class _MyListingCard extends StatelessWidget {
   }
 
   Widget _buildThumb() {
-    if (imagePath == null || imagePath!.isEmpty) {
+    final img = listing.images.isNotEmpty ? listing.images.first : null;
+    if (img == null || img.isEmpty) {
       return Container(
-        color: AppColors.surfaceVariant,
-        child: const Center(
-          child: Icon(Icons.image_outlined,
-              color: AppColors.textMuted, size: 28),
-        ),
-      );
+          color: AppColors.surfaceVariant,
+          child: const Center(
+              child: Icon(Icons.image_outlined,
+                  color: AppColors.textMuted, size: 28)));
     }
-    if (imagePath!.startsWith('http')) {
-      return Image.network(
-        imagePath!,
+    if (img.startsWith('http')) {
+      return Image.network(img,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => Container(
+              color: AppColors.surfaceVariant,
+              child: const Icon(Icons.broken_image_outlined,
+                  color: AppColors.textMuted, size: 28)));
+    }
+    return Image.file(File(img),
         fit: BoxFit.cover,
         errorBuilder: (_, __, ___) => Container(
-          color: AppColors.surfaceVariant,
-          child: const Icon(Icons.broken_image_outlined,
-              color: AppColors.textMuted, size: 28),
-        ),
-      );
-    }
-    // Local file
-    return Image.file(
-      File(imagePath!),
-      fit: BoxFit.cover,
-      errorBuilder: (_, __, ___) => Container(
-        color: AppColors.surfaceVariant,
-        child: const Icon(Icons.image_outlined,
-            color: AppColors.textMuted, size: 28),
-      ),
-    );
+            color: AppColors.surfaceVariant,
+            child: const Icon(Icons.image_outlined,
+                color: AppColors.textMuted, size: 28)));
   }
 }

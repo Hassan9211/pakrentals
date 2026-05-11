@@ -1,9 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/mock/mock_data.dart';
 import '../../listings/models/category_model.dart';
 import '../../listings/models/listing_model.dart';
-
 class HomeStats {
   final int totalListings;
   final int totalUsers;
@@ -59,12 +57,12 @@ class HomeNotifier extends StateNotifier<HomeState> {
     state = state.copyWith(isLoading: true, error: null);
 
     try {
-      // Load categories from Firestore, fallback to mock
+      // Load categories from Firestore
       List<CategoryModel> cats = [];
       try {
         final catSnap = await FirebaseFirestore.instance
             .collection('categories')
-            .orderBy('name')
+            .orderBy('order')
             .get()
             .timeout(const Duration(seconds: 8));
         if (catSnap.docs.isNotEmpty) {
@@ -72,11 +70,21 @@ class HomeNotifier extends StateNotifier<HomeState> {
             return CategoryModel.fromJson({'id': d.id, ...d.data()});
           }).toList();
         }
-      } catch (_) {}
+      } catch (_) {
+        // Try without orderBy if index not ready
+        try {
+          final catSnap = await FirebaseFirestore.instance
+              .collection('categories')
+              .get()
+              .timeout(const Duration(seconds: 8));
+          cats = catSnap.docs.map((d) {
+            return CategoryModel.fromJson({'id': d.id, ...d.data()});
+          }).toList();
+        } catch (_) {}
+      }
 
-      // Fallback to mock categories if Firestore empty
-      if (cats.isEmpty) cats = mockCategories;
-
+      // Fallback to empty list if Firestore has no categories yet
+      // (add categories in Firebase Console → categories collection)
       final results = await Future.wait([
         _fetchFeaturedListings(),
         _fetchStats(),
@@ -91,7 +99,7 @@ class HomeNotifier extends StateNotifier<HomeState> {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        categories: mockCategories,
+        categories: state.categories.isEmpty ? [] : state.categories,
         featuredListings: [],
         stats: const HomeStats(),
       );
@@ -101,7 +109,8 @@ class HomeNotifier extends StateNotifier<HomeState> {
   // ── Fetch featured listings from Firestore ─────────────────────────────────
   Future<List<ListingModel>> _fetchFeaturedListings() async {
     try {
-      final snap = await FirebaseFirestore.instance
+      // First try featured listings
+      final featuredSnap = await FirebaseFirestore.instance
           .collection('listings')
           .where('is_featured', isEqualTo: true)
           .where('status', isEqualTo: 'active')
@@ -109,9 +118,22 @@ class HomeNotifier extends StateNotifier<HomeState> {
           .get()
           .timeout(const Duration(seconds: 8));
 
-      return snap.docs.map((doc) {
-        final data = <String, dynamic>{'id': doc.id, ...doc.data()};
-        return ListingModel.fromJson(data);
+      if (featuredSnap.docs.isNotEmpty) {
+        return featuredSnap.docs.map((doc) {
+          return ListingModel.fromJson({'id': doc.id, ...doc.data()});
+        }).toList();
+      }
+
+      // Fallback: show latest active listings if no featured ones
+      final latestSnap = await FirebaseFirestore.instance
+          .collection('listings')
+          .where('status', isEqualTo: 'active')
+          .limit(10)
+          .get()
+          .timeout(const Duration(seconds: 8));
+
+      return latestSnap.docs.map((doc) {
+        return ListingModel.fromJson({'id': doc.id, ...doc.data()});
       }).toList();
     } catch (_) {
       return [];

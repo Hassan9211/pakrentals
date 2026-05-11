@@ -134,18 +134,26 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                 const SizedBox(height: 30),
 
                 // App name
-                ShaderMask(
-                  shaderCallback: (bounds) =>
-                      AppColors.cyanVioletGradient.createShader(
-                    Rect.fromLTWH(0, 0, bounds.width, bounds.height),
-                  ),
-                  child: Text(
-                    'PakRentals',
-                    style: GoogleFonts.syne(
-                      fontSize: 42,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                      letterSpacing: 1.0,
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: ShaderMask(
+                      shaderCallback: (bounds) =>
+                          AppColors.cyanVioletGradient.createShader(
+                        Rect.fromLTWH(0, 0, bounds.width, bounds.height),
+                      ),
+                      child: Text(
+                        'PakRentals',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.syne(
+                          fontSize: 40,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          letterSpacing: 0,
+                          height: 1.0,
+                        ),
+                      ),
                     ),
                   ),
                 )
@@ -162,6 +170,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
                 Text(
                   "Pakistan's Premier Rental Marketplace",
+                  textAlign: TextAlign.center,
                   style: GoogleFonts.spaceGrotesk(
                     color: AppColors.textMuted,
                     fontSize: 13,

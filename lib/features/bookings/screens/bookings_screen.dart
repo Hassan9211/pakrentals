@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,14 +10,9 @@ import '../models/booking_model.dart';
 import '../providers/bookings_provider.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// BOOKINGS SCREEN
-//
-// RENTER  → sees only their own bookings (items they booked)
-//           Pay Now appears when status == 'approved'
-//
-// HOST    → sees only requests on their listings
-//           Approve / Reject appears when status == 'pending'
-//           NO Pay Now — host never pays, renter does
+// BOOKINGS SCREEN — Two tabs for everyone
+// Tab 1: My Bookings (as renter)
+// Tab 2: Booking Requests (as host of their listings)
 // ─────────────────────────────────────────────────────────────────────────────
 class BookingsScreen extends ConsumerWidget {
   const BookingsScreen({super.key});
@@ -24,34 +20,99 @@ class BookingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(bookingsProvider);
-    final user = ref.watch(authProvider).user;
-    final isHost = user?.isHost ?? false;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          isHost ? 'Booking Requests' : 'My Bookings',
-          style: GoogleFonts.syne(fontWeight: FontWeight.w700),
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text('Bookings',
+              style: GoogleFonts.syne(fontWeight: FontWeight.w700)),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh_outlined),
+              onPressed: () => ref.read(bookingsProvider.notifier).load(),
+              tooltip: 'Refresh',
+            ),
+          ],
+          bottom: TabBar(
+            indicatorColor: AppColors.neonCyan,
+            labelColor: AppColors.neonCyan,
+            unselectedLabelColor: AppColors.textMuted,
+            tabs: [
+              Tab(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('My Bookings'),
+                    if (state.renterBookings.isNotEmpty) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: AppColors.neonCyan,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '${state.renterBookings.length}',
+                          style: const TextStyle(
+                              color: AppColors.background,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              Tab(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Requests'),
+                    if (state.hostRequests
+                        .where((b) => b.status == 'pending')
+                        .isNotEmpty) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: AppColors.warning,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '${state.hostRequests.where((b) => b.status == 'pending').length}',
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
-      body: RefreshIndicator(
-        onRefresh: () => ref.read(bookingsProvider.notifier).load(),
-        color: AppColors.neonCyan,
-        backgroundColor: AppColors.surface,
-        child: state.isLoading
-            ? const Center(
-                child: CircularProgressIndicator(color: AppColors.neonCyan))
-            : isHost
-                // ADMIN — only sees requests on their listings
-                ? _BookingList(
-                    bookings: state.hostRequests,
-                    isHost: true,
-                  )
-                // RENTER — only sees their own bookings
-                : _BookingList(
-                    bookings: state.renterBookings,
-                    isHost: false,
-                  ),
+        body: RefreshIndicator(
+          onRefresh: () => ref.read(bookingsProvider.notifier).load(),
+          color: AppColors.neonCyan,
+          backgroundColor: AppColors.surface,
+          child: state.isLoading
+              ? const Center(
+                  child:
+                      CircularProgressIndicator(color: AppColors.neonCyan))
+              : TabBarView(
+                  children: [
+                    _BookingList(
+                        bookings: state.renterBookings, isHost: false),
+                    _BookingList(
+                        bookings: state.hostRequests, isHost: true),
+                  ],
+                ),
+        ),
       ),
     );
   }
@@ -82,7 +143,7 @@ class _BookingList extends ConsumerWidget {
             const SizedBox(height: 6),
             Text(
               isHost
-                  ? 'When renters book your listings, requests will appear here'
+                  ? 'When renters book your listings, requests appear here'
                   : 'Browse listings and make your first booking',
               style: const TextStyle(
                   color: AppColors.textMuted, fontSize: 12),
@@ -134,7 +195,7 @@ class _BookingCard extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Header (tappable → detail screen) ─────────────────────
+          // ── Tappable header ────────────────────────────────────────
           InkWell(
             onTap: () => context.push(
                 '/booking/${booking.id}?host=${isHost ? '1' : '0'}'),
@@ -145,7 +206,6 @@ class _BookingCard extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Title + status badge
                   Row(
                     children: [
                       Expanded(
@@ -183,65 +243,47 @@ class _BookingCard extends ConsumerWidget {
                     ],
                   ),
                   const SizedBox(height: 8),
-
-                  // Dates
-                  Row(
-                    children: [
-                      const Icon(Icons.calendar_today_outlined,
-                          color: AppColors.textMuted, size: 13),
-                      const SizedBox(width: 5),
-                      Expanded(
-                        child: Text(
-                          '${formatDate(booking.startDate)} → ${formatDate(booking.endDate)}',
-                          style: const TextStyle(
-                              color: AppColors.textSecondary, fontSize: 12),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-
-                  // Price
-                  Row(
-                    children: [
-                      const Icon(Icons.payments_outlined,
-                          color: AppColors.textMuted, size: 13),
-                      const SizedBox(width: 5),
-                      Text(
-                        '${formatPrice(booking.totalPrice)} • ${booking.totalDays} day${booking.totalDays > 1 ? 's' : ''}',
+                  Row(children: [
+                    const Icon(Icons.calendar_today_outlined,
+                        color: AppColors.textMuted, size: 13),
+                    const SizedBox(width: 5),
+                    Expanded(
+                      child: Text(
+                        '${formatDate(booking.startDate)} → ${formatDate(booking.endDate)}',
                         style: const TextStyle(
                             color: AppColors.textSecondary, fontSize: 12),
                       ),
-                    ],
-                  ),
-
-                  // Renter info (host view only)
+                    ),
+                  ]),
+                  const SizedBox(height: 4),
+                  Row(children: [
+                    const Icon(Icons.payments_outlined,
+                        color: AppColors.textMuted, size: 13),
+                    const SizedBox(width: 5),
+                    Text(
+                      '${formatPrice(booking.totalPrice)} • ${booking.totalDays} day${booking.totalDays > 1 ? 's' : ''}',
+                      style: const TextStyle(
+                          color: AppColors.textSecondary, fontSize: 12),
+                    ),
+                  ]),
                   if (isHost && booking.renter != null) ...[
                     const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        const Icon(Icons.person_outlined,
-                            color: AppColors.textMuted, size: 13),
-                        const SizedBox(width: 5),
-                        Text(
-                          'Renter: ${booking.renter!.name}',
+                    Row(children: [
+                      const Icon(Icons.person_outlined,
+                          color: AppColors.textMuted, size: 13),
+                      const SizedBox(width: 5),
+                      Text('Renter: ${booking.renter!.name}',
                           style: const TextStyle(
-                              color: AppColors.textSecondary, fontSize: 12),
-                        ),
-                      ],
-                    ),
+                              color: AppColors.textSecondary, fontSize: 12)),
+                    ]),
                   ],
-
-                  // Tap hint
                   const SizedBox(height: 6),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      Text(
-                        'View details',
-                        style: const TextStyle(
-                            color: AppColors.neonCyan, fontSize: 11),
-                      ),
+                      const Text('View details',
+                          style: TextStyle(
+                              color: AppColors.neonCyan, fontSize: 11)),
                       const Icon(Icons.chevron_right,
                           color: AppColors.neonCyan, size: 14),
                     ],
@@ -251,7 +293,7 @@ class _BookingCard extends ConsumerWidget {
             ),
           ),
 
-          // ── Action buttons (separate from tap) ────────────────────
+          // ── Action buttons ─────────────────────────────────────────
           if (_hasActions())
             Container(
               decoration: const BoxDecoration(
@@ -266,15 +308,13 @@ class _BookingCard extends ConsumerWidget {
   }
 
   bool _hasActions() {
-    // ADMIN: show Approve/Reject only for pending requests
     if (isHost && booking.status == 'pending') return true;
-    // RENTER: show Pay Now only for approved bookings
     if (!isHost && booking.status == 'approved') return true;
     return false;
   }
 
   Widget _buildActions(BuildContext context, WidgetRef ref) {
-    // ── HOST: Approve / Reject ─────────────────────────────────────
+    // HOST: Approve / Reject
     if (isHost && booking.status == 'pending') {
       return Row(
         children: [
@@ -320,8 +360,7 @@ class _BookingCard extends ConsumerWidget {
       );
     }
 
-    // ── RENTER ONLY: Pay Now ───────────────────────────────────────
-    // This block NEVER runs for isHost == true
+    // RENTER: Pay Now
     if (!isHost && booking.status == 'approved') {
       return SizedBox(
         width: double.infinity,
@@ -340,4 +379,13 @@ class _BookingCard extends ConsumerWidget {
 
     return const SizedBox();
   }
+}
+
+void showSnackBar(BuildContext context, String msg, {bool isError = false}) {
+  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+    content: Text(msg),
+    backgroundColor: isError ? AppColors.error : AppColors.neonGreen,
+    behavior: SnackBarBehavior.floating,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+  ));
 }

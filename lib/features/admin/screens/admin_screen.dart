@@ -93,7 +93,7 @@ class AdminScreen extends ConsumerWidget {
                   crossAxisCount: 2,
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 12,
-                  childAspectRatio: 1.5,
+                  childAspectRatio: 2.2,
                   children: [
                     _StatCard(label: 'Total Users', value: '...', icon: Icons.people_outlined, color: AppColors.neonCyan),
                     _StatCard(label: 'Active Listings', value: '...', icon: Icons.home_outlined, color: AppColors.neonViolet),
@@ -127,7 +127,7 @@ class AdminScreen extends ConsumerWidget {
                   crossAxisCount: 2,
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 12,
-                  childAspectRatio: 1.5,
+                  childAspectRatio: 2.2,
                   children: [
                     _StatCard(
                       label: 'Total Users',
@@ -173,36 +173,32 @@ class AdminScreen extends ConsumerWidget {
                     _AdminMenuItem(
                       icon: Icons.people_outlined,
                       label: 'Users',
-                      onTap: () {},
+                      onTap: () => context.push('/admin/users'),
                     ),
-                    const Divider(
-                        color: AppColors.border, height: 1, indent: 56),
+                    const Divider(color: AppColors.border, height: 1, indent: 56),
                     _AdminMenuItem(
                       icon: Icons.home_outlined,
                       label: 'Listings',
-                      onTap: () {},
+                      onTap: () => context.push('/admin/listings'),
                     ),
-                    const Divider(
-                        color: AppColors.border, height: 1, indent: 56),
+                    const Divider(color: AppColors.border, height: 1, indent: 56),
                     _AdminMenuItem(
                       icon: Icons.calendar_today_outlined,
                       label: 'Bookings',
-                      onTap: () {},
+                      onTap: () => context.push('/admin/bookings'),
                     ),
-                    const Divider(
-                        color: AppColors.border, height: 1, indent: 56),
+                    const Divider(color: AppColors.border, height: 1, indent: 56),
                     _AdminMenuItem(
                       icon: Icons.flag_outlined,
                       label: 'Reports',
                       badgeColor: AppColors.error,
-                      onTap: () {},
+                      onTap: () => context.push('/admin/reports'),
                     ),
-                    const Divider(
-                        color: AppColors.border, height: 1, indent: 56),
+                    const Divider(color: AppColors.border, height: 1, indent: 56),
                     _AdminMenuItem(
                       icon: Icons.payments_outlined,
                       label: 'Payouts',
-                      onTap: () {},
+                      onTap: () => context.push('/admin/payouts'),
                     ),
                   ],
                 ),
@@ -231,29 +227,42 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.card,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: color.withOpacity(0.3)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Row(
         children: [
-          Icon(icon, color: color, size: 24),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(value,
+          Icon(icon, color: color, size: 28),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  value,
                   style: GoogleFonts.syne(
-                      color: color,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800)),
-              Text(label,
+                    color: color,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  label,
                   style: const TextStyle(
-                      color: AppColors.textMuted, fontSize: 11)),
-            ],
+                    color: AppColors.textMuted,
+                    fontSize: 11,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
           ),
         ],
       ),

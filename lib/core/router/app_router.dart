@@ -1,6 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/admin/screens/admin_screen.dart';
+import '../../features/admin/screens/admin_users_screen.dart';
+import '../../features/admin/screens/admin_listings_screen.dart';
+import '../../features/admin/screens/admin_bookings_screen.dart';
+import '../../features/admin/screens/admin_reports_screen.dart';
+import '../../features/admin/screens/admin_payouts_screen.dart';
 import '../../features/auth/providers/auth_provider.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/register_screen.dart';
@@ -209,6 +214,26 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/admin',
         builder: (_, __) => const AdminScreen(),
+      ),
+      GoRoute(
+        path: '/admin/users',
+        builder: (_, __) => const AdminUsersScreen(),
+      ),
+      GoRoute(
+        path: '/admin/listings',
+        builder: (_, __) => const AdminListingsScreen(),
+      ),
+      GoRoute(
+        path: '/admin/bookings',
+        builder: (_, __) => const AdminBookingsScreen(),
+      ),
+      GoRoute(
+        path: '/admin/reports',
+        builder: (_, __) => const AdminReportsScreen(),
+      ),
+      GoRoute(
+        path: '/admin/payouts',
+        builder: (_, __) => const AdminPayoutsScreen(),
       ),
     ],
 

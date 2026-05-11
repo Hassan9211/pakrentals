@@ -119,7 +119,9 @@ class UserModel {
   };
 
   bool get isAdmin => role == 'admin';
-  bool get isHost => role == 'admin'; // admin = host/owner
+  // Any logged-in user can list items and receive booking requests
+  bool get isHost => true;
+  bool get isActualAdmin => role == 'admin';
   bool get isCnicVerified => cnicStatus == 'verified';
   bool get isCnicPending => cnicStatus == 'pending';
 

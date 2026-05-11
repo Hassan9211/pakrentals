@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -30,8 +31,228 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
-  Future<void> _login() async {
-    if (!_formKey.currentState!.validate()) return;
+  // ── Forgot Password ────────────────────────────────────────────────────────
+  void _showForgotPassword(BuildContext context) {
+    final emailCtrl = TextEditingController(text: _emailCtrl.text.trim());
+    bool isSending = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => Padding(
+          padding: EdgeInsets.only(
+            left: 24,
+            right: 24,
+            top: 20,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Handle
+              Center(
+                child: Container(
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Icon
+              Center(
+                child: Container(
+                  width: 60, height: 60,
+                  decoration: BoxDecoration(
+                    gradient: AppColors.primaryGradient,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.neonCyan.withOpacity(0.3),
+                        blurRadius: 20,
+                      ),
+                    ],
+                  ),
+                  child: const Icon(Icons.lock_reset_outlined,
+                      color: Colors.white, size: 28),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              Center(
+                child: Text(
+                  'Reset Password',
+                  style: GoogleFonts.syne(
+                    color: AppColors.textPrimary,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Center(
+                child: Text(
+                  'Enter your email — we\'ll send a reset link',
+                  style: GoogleFonts.spaceGrotesk(
+                    color: AppColors.textMuted,
+                    fontSize: 13,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Email field
+              TextField(
+                controller: emailCtrl,
+                keyboardType: TextInputType.emailAddress,
+                style: const TextStyle(color: AppColors.textPrimary),
+                decoration: const InputDecoration(
+                  labelText: 'Email Address',
+                  prefixIcon: Icon(Icons.email_outlined),
+                ),
+                onSubmitted: (_) => _sendReset(ctx, emailCtrl.text, setModalState, () => isSending, (v) => isSending = v),
+              ),
+              const SizedBox(height: 20),
+
+              // Send button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: isSending
+                      ? null
+                      : () => _sendReset(ctx, emailCtrl.text, setModalState,
+                            () => isSending, (v) => setModalState(() => isSending = v)),
+                  icon: isSending
+                      ? const SizedBox(
+                          width: 16, height: 16,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.send_outlined, size: 18),
+                  label: Text(isSending ? 'Sending...' : 'Send Reset Link'),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _sendReset(
+    BuildContext ctx,
+    String email,
+    StateSetter setModalState,
+    bool Function() getLoading,
+    void Function(bool) setLoading,
+  ) async {
+    final trimmed = email.trim();
+    if (trimmed.isEmpty) {
+      showSnackBar(ctx, 'Please enter your email', isError: true);
+      return;
+    }
+
+    // Basic email validation
+    if (!trimmed.contains('@') || !trimmed.contains('.')) {
+      showSnackBar(ctx, 'Enter a valid email address', isError: true);
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: trimmed);
+      if (ctx.mounted) {
+        Navigator.pop(ctx); // close sheet
+        // Show success dialog
+        showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            backgroundColor: AppColors.surface,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16)),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 8),
+                Container(
+                  width: 64, height: 64,
+                  decoration: BoxDecoration(
+                    color: AppColors.neonGreen.withOpacity(0.15),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                        color: AppColors.neonGreen.withOpacity(0.5), width: 2),
+                  ),
+                  child: const Icon(Icons.mark_email_read_outlined,
+                      color: AppColors.neonGreen, size: 32),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Email Sent!',
+                  style: GoogleFonts.syne(
+                    color: AppColors.textPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Password reset link sent to:\n$trimmed\n\nCheck your inbox (and spam folder).',
+                  style: GoogleFonts.spaceGrotesk(
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                    height: 1.5,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Got it'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      setLoading(false);
+      String msg;
+      switch (e.code) {
+        case 'user-not-found':
+          msg = 'No account found with this email.';
+          break;
+        case 'invalid-email':
+          msg = 'Invalid email address.';
+          break;
+        case 'too-many-requests':
+          msg = 'Too many attempts. Try again later.';
+          break;
+        default:
+          msg = e.message ?? 'Failed to send reset email.';
+      }
+      if (ctx.mounted) showSnackBar(ctx, msg, isError: true);
+    } catch (e) {
+      setLoading(false);
+      if (ctx.mounted) showSnackBar(ctx, 'Error: $e', isError: true);
+    }
+  }
+
+  Future<void> _login() async {    if (!_formKey.currentState!.validate()) return;
 
     final success = await ref.read(authProvider.notifier).login(
           _emailCtrl.text.trim(),
@@ -163,7 +384,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       Align(
                         alignment: Alignment.centerRight,
                         child: TextButton(
-                          onPressed: () {},
+                          onPressed: () => _showForgotPassword(context),
                           style: TextButton.styleFrom(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 4, vertical: 8)),

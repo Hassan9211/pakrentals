@@ -16,8 +16,14 @@ class CategoryModel {
   });
 
   factory CategoryModel.fromJson(Map<String, dynamic> json) {
+    // Handle both int IDs and Firestore string IDs
+    final rawId = json['id'];
+    final id = rawId is int
+        ? rawId
+        : (rawId?.toString().hashCode.abs() ?? 0);
+
     return CategoryModel(
-      id: json['id'] ?? 0,
+      id: id,
       name: json['name'] ?? '',
       icon: json['icon'],
       image: json['image'],

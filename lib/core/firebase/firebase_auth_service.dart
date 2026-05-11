@@ -95,8 +95,11 @@ class FirebaseAuthService {
         debugPrint('Firestore fetch failed (non-fatal): $e');
       }
 
-      // Return Firestore data if available, else build from Auth
-      return firestoreData ?? {
+      // Return Firestore data if available, else build from Auth and CREATE the doc
+      if (firestoreData != null) return firestoreData;
+
+      // Create missing Firestore document for this user
+      final fallback = {
         'id': cred.user!.uid,
         'name': cred.user!.displayName ?? email.split('@').first,
         'email': email.trim(),
@@ -104,7 +107,14 @@ class FirebaseAuthService {
         'is_verified': cred.user!.emailVerified,
         'cnic_status': 'none',
         'payment_methods': [],
+        'created_at': FieldValue.serverTimestamp(),
       };
+      try {
+        await _db.collection('users').doc(cred.user!.uid)
+            .set(fallback, SetOptions(merge: true))
+            .timeout(const Duration(seconds: 5));
+      } catch (_) {}
+      return fallback;
     } on FirebaseAuthException catch (e) {
       throw _parseAuthError(e);
     } catch (e) {
@@ -125,10 +135,11 @@ class FirebaseAuthService {
       await currentUser?.updateDisplayName(data['name']);
     }
 
+    // Use set with merge:true — works even if document doesn't exist yet
     await _db
         .collection('users')
         .doc(uid)
-        .update(data)
+        .set(data, SetOptions(merge: true))
         .timeout(_timeout);
   }
 
@@ -143,7 +154,8 @@ class FirebaseAuthService {
     await _db
         .collection('users')
         .doc(uid)
-        .update({'role': 'admin'}).timeout(_timeout);
+        .set({'role': 'admin'}, SetOptions(merge: true))
+        .timeout(_timeout);
     return true;
   }
 

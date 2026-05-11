@@ -7,30 +7,16 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../../core/mock/mock_data.dart'; // only for mockCategories fallback
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/helpers.dart';
 import '../../../shared/widgets/image_source_sheet.dart';
 import '../../../shared/widgets/neon_gradient_text.dart';
 import '../../../shared/widgets/primary_glow_button.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../home/providers/home_provider.dart';
+import '../models/category_model.dart';
 import '../models/listing_model.dart';
 import '../providers/listings_provider.dart';
-
-// ── Provider to hold newly created listings (local cache) ────────────────────
-final myListingsProvider =
-    StateNotifierProvider<_MyListingsNotifier, List<ListingModel>>((ref) {
-  return _MyListingsNotifier();
-});
-
-class _MyListingsNotifier extends StateNotifier<List<ListingModel>> {
-  _MyListingsNotifier() : super([]);
-
-  void add(ListingModel listing) {
-    state = [listing, ...state];
-    // No more mockListings insert — data lives in Firestore
-  }
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CREATE LISTING SCREEN
@@ -91,9 +77,10 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
     setState(() => _isSubmitting = true);
 
     final user = ref.read(authProvider).user;
-    final category = mockCategories.firstWhere(
+    final categories = ref.read(homeProvider).categories;
+    final category = categories.firstWhere(
       (c) => c.id == _selectedCategoryId,
-      orElse: () => mockCategories.first,
+      orElse: () => categories.isNotEmpty ? categories.first : CategoryModel(id: 0, name: 'General'),
     );
 
     try {
@@ -163,7 +150,6 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
         createdAt: DateTime.now().toIso8601String(),
       );
 
-      ref.read(myListingsProvider.notifier).add(newListing);
       ref.read(browseProvider.notifier).loadListings(refresh: true);
       setState(() => _isSubmitting = false);
       if (mounted) {
@@ -332,7 +318,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: mockCategories.map((cat) {
+          children: ref.watch(homeProvider).categories.map((cat) {
             final isSelected = _selectedCategoryId == cat.id;
             return GestureDetector(
               onTap: () => setState(() => _selectedCategoryId = cat.id),

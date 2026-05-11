@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -30,12 +32,29 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isSubmitting = true);
-    // Mock: simulate network delay
-    await Future.delayed(const Duration(milliseconds: 700));
-    setState(() => _isSubmitting = false);
-    if (mounted) {
-      showSnackBar(context, 'Report submitted successfully!');
-      context.pop();
+
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+      await FirebaseFirestore.instance.collection('reports').add({
+        'user_id': uid,
+        'type': _type,
+        'subject': _subjectCtrl.text.trim(),
+        'description': _descCtrl.text.trim(),
+        'status': 'open',
+        'created_at': FieldValue.serverTimestamp(),
+      });
+
+      setState(() => _isSubmitting = false);
+      if (mounted) {
+        showSnackBar(context, 'Report submitted successfully!');
+        context.pop();
+      }
+    } catch (e) {
+      setState(() => _isSubmitting = false);
+      if (mounted) {
+        showSnackBar(context, 'Failed to submit report. Try again.',
+            isError: true);
+      }
     }
   }
 
