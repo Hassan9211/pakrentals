@@ -9,6 +9,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/helpers.dart';
 import '../../../shared/widgets/image_source_sheet.dart';
 import '../../../shared/widgets/primary_glow_button.dart';
+import '../../auth/models/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
 
 class CnicScreen extends ConsumerStatefulWidget {
@@ -66,15 +67,6 @@ class _CnicScreenState extends ConsumerState<CnicScreen> {
     return clean.length == 13 && RegExp(r'^\d+$').hasMatch(clean);
   }
 
-  String _formatCnic(String value) {
-    final digits = value.replaceAll('-', '').replaceAll(' ', '');
-    if (digits.length <= 5) return digits;
-    if (digits.length <= 12) {
-      return '${digits.substring(0, 5)}-${digits.substring(5)}';
-    }
-    return '${digits.substring(0, 5)}-${digits.substring(5, 12)}-${digits.substring(12)}';
-  }
-
   // ── Submit ─────────────────────────────────────────────────────────────────
   Future<void> _submit() async {
     final cnic = _cnicCtrl.text.trim();
@@ -123,10 +115,10 @@ class _CnicScreenState extends ConsumerState<CnicScreen> {
               width: 64,
               height: 64,
               decoration: BoxDecoration(
-                color: AppColors.warning.withOpacity(0.15),
+                color: AppColors.warning.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
                 border: Border.all(
-                    color: AppColors.warning.withOpacity(0.5), width: 2),
+                    color: AppColors.warning.withValues(alpha: 0.5), width: 2),
               ),
               child: const Icon(Icons.hourglass_empty_outlined,
                   color: AppColors.warning, size: 32),
@@ -353,9 +345,9 @@ class _CnicScreenState extends ConsumerState<CnicScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: cfg.bg.withOpacity(0.1),
+        color: cfg.bg.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cfg.color.withOpacity(0.4)),
+        border: Border.all(color: cfg.color.withValues(alpha: 0.4)),
       ),
       child: Row(
         children: [
@@ -363,7 +355,7 @@ class _CnicScreenState extends ConsumerState<CnicScreen> {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: cfg.color.withOpacity(0.15),
+              color: cfg.color.withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
             child: Icon(cfg.icon, color: cfg.color, size: 22),
@@ -462,9 +454,9 @@ class _CnicScreenState extends ConsumerState<CnicScreen> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.neonCyan.withOpacity(0.05),
+        color: AppColors.neonCyan.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.neonCyan.withOpacity(0.2)),
+        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -506,7 +498,7 @@ class _CnicScreenState extends ConsumerState<CnicScreen> {
   }
 
   // ── Verified card ──────────────────────────────────────────────────────────
-  Widget _buildVerifiedCard(user) {
+  Widget _buildVerifiedCard(UserModel? user) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -516,7 +508,7 @@ class _CnicScreenState extends ConsumerState<CnicScreen> {
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.neonGreen.withOpacity(0.4)),
+        border: Border.all(color: AppColors.neonGreen.withValues(alpha: 0.4)),
       ),
       child: Column(
         children: [
@@ -543,9 +535,10 @@ class _CnicScreenState extends ConsumerState<CnicScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
-              color: AppColors.neonGreen.withOpacity(0.1),
+              color: AppColors.neonGreen.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppColors.neonGreen.withOpacity(0.3)),
+              border:
+                  Border.all(color: AppColors.neonGreen.withValues(alpha: 0.3)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -600,12 +593,12 @@ class _PhotoUploadCard extends StatelessWidget {
         height: 140,
         decoration: BoxDecoration(
           color: hasPhoto
-              ? AppColors.neonCyan.withOpacity(0.05)
+              ? AppColors.neonCyan.withValues(alpha: 0.05)
               : AppColors.surfaceVariant,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: hasPhoto
-                ? AppColors.neonCyan.withOpacity(0.5)
+                ? AppColors.neonCyan.withValues(alpha: 0.5)
                 : AppColors.border,
             width: hasPhoto ? 1.5 : 1,
           ),
@@ -631,7 +624,7 @@ class _PhotoUploadCard extends StatelessWidget {
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                             vertical: 6, horizontal: 8),
-                        color: AppColors.background.withOpacity(0.75),
+                        color: AppColors.background.withValues(alpha: 0.75),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -657,7 +650,7 @@ class _PhotoUploadCard extends StatelessWidget {
                       child: Container(
                         padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
-                          color: AppColors.background.withOpacity(0.8),
+                          color: AppColors.background.withValues(alpha: 0.8),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(Icons.edit,
@@ -690,10 +683,10 @@ class _PhotoUploadCard extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: AppColors.neonCyan.withOpacity(0.1),
+                        color: AppColors.neonCyan.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                            color: AppColors.neonCyan.withOpacity(0.3)),
+                            color: AppColors.neonCyan.withValues(alpha: 0.3)),
                       ),
                       child: const Text(
                         'Tap to upload',

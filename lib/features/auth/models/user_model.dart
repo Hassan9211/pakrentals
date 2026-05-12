@@ -34,6 +34,7 @@ class SavedPaymentMethod {
 
 class UserModel {
   final int id;
+  final String? firestoreId; // Original Firebase UID
   final String name;
   final String email;
   final String? phone;
@@ -52,6 +53,7 @@ class UserModel {
 
   UserModel({
     required this.id,
+    this.firestoreId,
     required this.name,
     required this.email,
     this.phone,
@@ -72,11 +74,21 @@ class UserModel {
   factory UserModel.fromJson(Map<String, dynamic> json) {
     // Firebase uses string UIDs, mock uses int IDs
     final rawId = json['id'];
-    final id = rawId is int
-        ? rawId
-        : (rawId?.toString().hashCode.abs() ?? 0);
+    final int id;
+    String? firestoreId;
+
+    if (rawId is int) {
+      id = rawId;
+    } else if (rawId is String && rawId.isNotEmpty) {
+      firestoreId = rawId;
+      id = rawId.hashCode.abs();
+    } else {
+      id = 0;
+    }
+
     return UserModel(
       id: id,
+      firestoreId: firestoreId,
       name: json['name'] ?? '',
       email: json['email'] ?? '',
       phone: json['phone'],

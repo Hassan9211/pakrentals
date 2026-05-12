@@ -13,11 +13,6 @@ import 'package:dio/dio.dart';
 // For CI/CD, set these as repository secrets.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const String _stripePublishableKey = String.fromEnvironment(
-  'STRIPE_PK',
-  defaultValue: '', // set via --dart-define=STRIPE_PK=pk_test_...
-);
-
 const String _stripeSecretKey = String.fromEnvironment(
   'STRIPE_SK',
   defaultValue: '', // set via --dart-define=STRIPE_SK=sk_test_...
@@ -68,8 +63,7 @@ class StripeService {
   }) async {
     try {
       // Step 1 — Create PaymentIntent
-      final clientSecret =
-          await _createPaymentIntent(amountPKR.toInt());
+      final clientSecret = await _createPaymentIntent(amountPKR.toInt());
 
       if (clientSecret == null) {
         return StripePaymentResult.failed(
@@ -132,12 +126,10 @@ class StripePaymentResult {
 
   factory StripePaymentResult.success(String clientSecret) =>
       StripePaymentResult._(
-          status: StripePaymentStatus.success,
-          clientSecret: clientSecret);
+          status: StripePaymentStatus.success, clientSecret: clientSecret);
 
-  factory StripePaymentResult.failed(String message) =>
-      StripePaymentResult._(
-          status: StripePaymentStatus.failed, errorMessage: message);
+  factory StripePaymentResult.failed(String message) => StripePaymentResult._(
+      status: StripePaymentStatus.failed, errorMessage: message);
 
   factory StripePaymentResult.cancelled() =>
       StripePaymentResult._(status: StripePaymentStatus.cancelled);

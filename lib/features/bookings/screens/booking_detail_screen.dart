@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+import '../../../core/services/cloudinary_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -15,7 +14,7 @@ import '../models/booking_model.dart';
 import '../providers/bookings_provider.dart';
 
 class BookingDetailScreen extends ConsumerStatefulWidget {
-  final int bookingId;
+  final String bookingId;
   final bool isHost;
 
   const BookingDetailScreen({
@@ -32,34 +31,21 @@ class BookingDetailScreen extends ConsumerStatefulWidget {
 class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
   bool _isUploading = false;
 
-  // ── Upload photos to Firebase Storage ─────────────────────────────────────
-  Future<List<String>> _uploadPhotos(
-      List<String> paths, String folder) async {
-    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-    final urls = <String>[];
-    for (int i = 0; i < paths.length; i++) {
-      try {
-        final ref = FirebaseStorage.instance
-            .ref('bookings/${widget.bookingId}/$folder/${uid}_$i.jpg');
-        final task = await ref.putFile(
-          File(paths[i]),
-          SettableMetadata(contentType: 'image/jpeg'),
-        );
-        urls.add(await task.ref.getDownloadURL());
-      } catch (e) {
-        urls.add(paths[i]); // fallback to local path
-      }
-    }
-    return urls;
+  // ── Upload photos to Cloudinary ──────────────────────────────────────────
+  Future<List<String>> _uploadPhotos(List<String> paths, String folder) async {
+    final files = paths.map((p) => File(p)).toList();
+    return await CloudinaryService.uploadMultipleImages(files);
   }
 
   // ── Send notification to admin ─────────────────────────────────────────────
   Future<void> _notifyAdmin(String title, String body,
-      {List<String>? photoUrls, String? firestoreBookingId}) async {
+      {String type = 'handover',
+      List<String>? photoUrls,
+      String? firestoreBookingId}) async {
     const adminUid = 't41DI9ZHowUAsk9pgyFd7iJrTsA3';
     await FirebaseFirestore.instance.collection('notifications').add({
       'user_id': adminUid,
-      'type': 'handover',
+      'type': type,
       'title': title,
       'body': body,
       'photo_urls': photoUrls ?? [],
@@ -70,12 +56,13 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
   }
 
   // ── Send notification to host ──────────────────────────────────────────────
-  Future<void> _notifyHost(
-      String hostId, String title, String body,
-      {List<String>? photoUrls, String? firestoreBookingId}) async {
+  Future<void> _notifyHost(String hostId, String title, String body,
+      {String type = 'payment_proof',
+      List<String>? photoUrls,
+      String? firestoreBookingId}) async {
     await FirebaseFirestore.instance.collection('notifications').add({
       'user_id': hostId,
-      'type': 'payment_proof',
+      'type': type,
       'title': title,
       'body': body,
       'photo_urls': photoUrls ?? [],
@@ -105,10 +92,11 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
 
       // Get host_id from booking
       final bookingData = (await FirebaseFirestore.instance
-              .collection('bookings')
-              .doc(firestoreId)
-              .get())
-          .data() ?? {};
+                  .collection('bookings')
+                  .doc(firestoreId)
+                  .get())
+              .data() ??
+          {};
       final hostId = bookingData['host_id']?.toString() ?? '';
       final listingTitle = booking.listing?.title ?? 'a listing';
       final bookingRef = '#${widget.bookingId.toString().substring(0, 6)}';
@@ -128,11 +116,14 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
       await _notifyAdmin(
         '💰 Payment Proof Received',
         'Renter submitted payment proof for booking $bookingRef — "$listingTitle"',
+        type: 'payment_proof',
         photoUrls: urls,
         firestoreBookingId: firestoreId,
       );
 
-      if (mounted) showSnackBar(context, 'Payment proof sent to host & admin! ✅');
+      if (mounted) {
+        showSnackBar(context, 'Payment proof sent to host & admin! ✅');
+      }
     } catch (e) {
       if (mounted) showSnackBar(context, 'Upload failed: $e', isError: true);
     }
@@ -160,6 +151,28 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
         }, SetOptions(merge: true));
       }
 
+      // Get host_id from booking
+      final bookingData = (await FirebaseFirestore.instance
+                  .collection('bookings')
+                  .doc(firestoreId)
+                  .get())
+              .data() ??
+          {};
+      final hostId = bookingData['host_id']?.toString() ?? '';
+
+      // Notify HOST
+      if (hostId.isNotEmpty) {
+        await _notifyHost(
+          hostId,
+          '📦 Item Picked Up',
+          'Renter has confirmed receiving the item for booking #${widget.bookingId.toString().substring(0, 6)}',
+          type: 'handover',
+          photoUrls: urls,
+          firestoreBookingId: firestoreId,
+        );
+      }
+
+      // Notify ADMIN
       await _notifyAdmin(
         '📦 Item Picked Up',
         'Renter has confirmed receiving the item for booking #${widget.bookingId.toString().substring(0, 6)}',
@@ -167,7 +180,9 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
         firestoreBookingId: firestoreId,
       );
 
-      if (mounted) showSnackBar(context, 'Pickup confirmed! Item is now active 🎉');
+      if (mounted) {
+        showSnackBar(context, 'Pickup confirmed! Item is now active 🎉');
+      }
     } catch (e) {
       if (mounted) showSnackBar(context, 'Upload failed: $e', isError: true);
     }
@@ -195,6 +210,28 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
         }, SetOptions(merge: true));
       }
 
+      // Get host_id from booking
+      final bookingData = (await FirebaseFirestore.instance
+                  .collection('bookings')
+                  .doc(firestoreId)
+                  .get())
+              .data() ??
+          {};
+      final hostId = bookingData['host_id']?.toString() ?? '';
+
+      // Notify HOST
+      if (hostId.isNotEmpty) {
+        await _notifyHost(
+          hostId,
+          '🔄 Item Returned',
+          'Renter has returned the item for booking #${widget.bookingId.toString().substring(0, 6)}',
+          type: 'handover',
+          photoUrls: urls,
+          firestoreBookingId: firestoreId,
+        );
+      }
+
+      // Notify ADMIN
       await _notifyAdmin(
         '🔄 Item Returned',
         'Renter has returned the item for booking #${widget.bookingId.toString().substring(0, 6)}',
@@ -202,7 +239,9 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
         firestoreBookingId: firestoreId,
       );
 
-      if (mounted) showSnackBar(context, 'Return confirmed! Booking completed ✅');
+      if (mounted) {
+        showSnackBar(context, 'Return confirmed! Booking completed ✅');
+      }
     } catch (e) {
       if (mounted) showSnackBar(context, 'Upload failed: $e', isError: true);
     }
@@ -221,8 +260,9 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
 
     if (unique.isEmpty) {
       return Scaffold(
-        appBar: AppBar(title: Text('Booking Details',
-            style: GoogleFonts.syne(fontWeight: FontWeight.w700))),
+        appBar: AppBar(
+            title: Text('Booking Details',
+                style: GoogleFonts.syne(fontWeight: FontWeight.w700))),
         body: const Center(
             child: CircularProgressIndicator(color: AppColors.neonCyan)),
       );
@@ -230,9 +270,13 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
 
     BookingModel? booking;
     try {
-      booking = unique.firstWhere((b) => b.id == widget.bookingId);
+      booking = unique.firstWhere((b) => b.firestoreId == widget.bookingId);
     } catch (_) {
-      booking = unique.first;
+      try {
+        booking = unique.firstWhere((b) => b.id.toString() == widget.bookingId);
+      } catch (_) {
+        booking = unique.first;
+      }
     }
 
     final statusColor = bookingStatusColor(booking.status);
@@ -254,8 +298,8 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
                   const CircularProgressIndicator(color: AppColors.neonCyan),
                   const SizedBox(height: 16),
                   Text('Uploading photos...',
-                      style: GoogleFonts.spaceGrotesk(
-                          color: AppColors.textMuted)),
+                      style:
+                          GoogleFonts.spaceGrotesk(color: AppColors.textMuted)),
                 ],
               ),
             )
@@ -269,10 +313,10 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.1),
+                      color: statusColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(14),
                       border:
-                          Border.all(color: statusColor.withOpacity(0.4)),
+                          Border.all(color: statusColor.withValues(alpha: 0.4)),
                     ),
                     child: Row(
                       children: [
@@ -291,8 +335,7 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
                               Text(
                                 _statusDescription(booking.status),
                                 style: const TextStyle(
-                                    color: AppColors.textMuted,
-                                    fontSize: 12),
+                                    color: AppColors.textMuted, fontSize: 12),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -360,8 +403,7 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
                                         CrossAxisAlignment.start,
                                     children: [
                                       const Icon(Icons.location_on_outlined,
-                                          color: AppColors.neonCyan,
-                                          size: 12),
+                                          color: AppColors.neonCyan, size: 12),
                                       const SizedBox(width: 3),
                                       Expanded(
                                         child: Text(
@@ -422,7 +464,8 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
                           booking.listing!.city,
                           valueColor: AppColors.neonCyan,
                         ),
-                      ],                      const Divider(color: AppColors.border, height: 20),
+                      ],
+                      const Divider(color: AppColors.border, height: 20),
                       _row(Icons.payments_outlined, 'Total Amount',
                           formatPrice(booking.totalPrice),
                           valueColor: AppColors.neonCyan),
@@ -438,6 +481,13 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
                       ],
                     ]),
                   ),
+
+                  const SizedBox(height: 20),
+
+                  // ── Late Fees ────────────────────────────────────────
+                  if (booking.status == 'active' ||
+                      booking.status == 'completed')
+                    _buildLateFeeSection(booking),
 
                   const SizedBox(height: 20),
 
@@ -489,12 +539,47 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
                   ],
 
                   // ── Action buttons ───────────────────────────────────
+                  _buildChatButton(context, booking),
+                  const SizedBox(height: 12),
                   _buildActions(context, ref, booking),
 
                   const SizedBox(height: 32),
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _buildChatButton(BuildContext context, BookingModel booking) {
+    // Admin UID
+    const adminUid = 't41DI9ZHowUAsk9pgyFd7iJrTsA3';
+
+    // If I am the host, chat with renter.
+    // If I am renter, chat with host.
+    // If I am admin (not host or renter), this logic might need adjustment, but usually admin is the host for many things.
+
+    final otherUser = widget.isHost ? booking.renter : booking.listing?.host;
+
+    // Fallback: If no other user found but we need to talk to someone, default to Admin for renters
+    String? otherUserId;
+    if (otherUser != null) {
+      otherUserId = otherUser.firestoreId ?? otherUser.id.toString();
+    } else if (!widget.isHost) {
+      otherUserId = adminUid;
+    }
+
+    if (otherUserId == null) return const SizedBox();
+
+    final listingId =
+        booking.listing?.firestoreId ?? booking.listingId.toString();
+
+    return PrimaryGlowButton(
+      label: widget.isHost ? 'Chat with Renter' : 'Chat with Host',
+      icon: Icons.chat_bubble_outline,
+      width: double.infinity,
+      onPressed: () {
+        context.push('/messages/$listingId/$otherUserId');
+      },
     );
   }
 
@@ -544,8 +629,8 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
           label: 'Pay Now',
           width: double.infinity,
           icon: Icons.payment_outlined,
-          onPressed: () => context.push(
-              '/payment/${booking.id}?amount=${booking.totalPrice}'),
+          onPressed: () => context
+              .push('/payment/${booking.id}?amount=${booking.totalPrice}'),
         ));
         actions.add(const SizedBox(height: 10));
 
@@ -587,9 +672,10 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
           width: double.infinity,
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: AppColors.neonGreen.withOpacity(0.1),
+            color: AppColors.neonGreen.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.neonGreen.withOpacity(0.4)),
+            border:
+                Border.all(color: AppColors.neonGreen.withValues(alpha: 0.4)),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -626,9 +712,9 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
         width: double.infinity,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.07),
+          color: color.withValues(alpha: 0.07),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: color.withOpacity(0.35)),
+          border: Border.all(color: color.withValues(alpha: 0.35)),
         ),
         child: Row(
           children: [
@@ -636,7 +722,7 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: color.withOpacity(0.15),
+                color: color.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(icon, color: color, size: 22),
@@ -664,8 +750,7 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
     );
   }
 
-  Widget _row(IconData icon, String label, String value,
-      {Color? valueColor}) {
+  Widget _row(IconData icon, String label, String value, {Color? valueColor}) {
     return Row(children: [
       Icon(icon, color: AppColors.textMuted, size: 16),
       const SizedBox(width: 10),
@@ -685,35 +770,103 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
 
   IconData _statusIcon(String status) {
     switch (status) {
-      case 'pending': return Icons.hourglass_empty_outlined;
-      case 'approved': return Icons.check_circle_outline;
-      case 'rejected': return Icons.cancel_outlined;
-      case 'paid': return Icons.payment_outlined;
-      case 'active': return Icons.play_circle_outline;
-      case 'completed': return Icons.task_alt_outlined;
-      default: return Icons.info_outline;
+      case 'pending':
+        return Icons.hourglass_empty_outlined;
+      case 'approved':
+        return Icons.check_circle_outline;
+      case 'rejected':
+        return Icons.cancel_outlined;
+      case 'paid':
+        return Icons.payment_outlined;
+      case 'active':
+        return Icons.play_circle_outline;
+      case 'completed':
+        return Icons.task_alt_outlined;
+      default:
+        return Icons.info_outline;
     }
   }
 
   String _statusDescription(String status) {
     switch (status) {
-      case 'pending': return 'Waiting for host approval';
-      case 'approved': return 'Approved — pay & upload payment proof';
-      case 'rejected': return 'Host declined this request';
-      case 'paid': return 'Paid — confirm item received with photos';
-      case 'active': return 'Item with you — return with photos when done';      case 'completed': return 'Rental completed successfully';
-      default: return '';
+      case 'pending':
+        return 'Waiting for host approval';
+      case 'approved':
+        return 'Approved — pay & upload payment proof';
+      case 'rejected':
+        return 'Host declined this request';
+      case 'paid':
+        return 'Paid — confirm item received with photos';
+      case 'active':
+        return 'Item with you — return with photos when done';
+      case 'completed':
+        return 'Rental completed successfully';
+      default:
+        return '';
     }
   }
 
   String _paymentLabel(String method) {
     switch (method) {
-      case 'jazzcash': return 'JazzCash';
-      case 'easypaisa': return 'Easypaisa';
-      case 'bank_transfer': return 'Bank Transfer';
-      case 'cash': return 'Cash on Delivery';
-      default: return method;
+      case 'jazzcash':
+        return 'JazzCash';
+      case 'easypaisa':
+        return 'Easypaisa';
+      case 'bank_transfer':
+        return 'Bank Transfer';
+      case 'cash':
+        return 'Cash on Delivery';
+      default:
+        return method;
     }
+  }
+
+  // ── Late Fee Section ───────────────────────────────────────────────────────
+  Widget _buildLateFeeSection(BookingModel booking) {
+    final endDate = DateTime.parse(booking.endDate);
+    final now = DateTime.now();
+    final isLate = now.isAfter(endDate.add(const Duration(days: 1)));
+
+    if (!isLate) return const SizedBox();
+
+    final lateDays = now.difference(endDate).inDays;
+    final lateFee = lateDays * (booking.listing?.pricePerDay ?? 0);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.error.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.error.withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded,
+                  color: AppColors.error, size: 20),
+              const SizedBox(width: 8),
+              Text('Late Return Penalty',
+                  style: GoogleFonts.syne(
+                      color: AppColors.error,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _row(Icons.calendar_month_outlined, 'Overdue By', '$lateDays days'),
+          const SizedBox(height: 8),
+          _row(Icons.payments_outlined, 'Penalty Amount', formatPrice(lateFee),
+              valueColor: AppColors.error),
+          const SizedBox(height: 8),
+          const Text(
+            'Penalty is calculated based on daily rent for each extra day.',
+            style: TextStyle(color: AppColors.textMuted, fontSize: 11),
+          ),
+        ],
+      ),
+    );
   }
 }
 

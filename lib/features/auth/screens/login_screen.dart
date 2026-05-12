@@ -58,7 +58,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               // Handle
               Center(
                 child: Container(
-                  width: 40, height: 4,
+                  width: 40,
+                  height: 4,
                   decoration: BoxDecoration(
                     color: AppColors.border,
                     borderRadius: BorderRadius.circular(2),
@@ -70,13 +71,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               // Icon
               Center(
                 child: Container(
-                  width: 60, height: 60,
+                  width: 60,
+                  height: 60,
                   decoration: BoxDecoration(
                     gradient: AppColors.primaryGradient,
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.neonCyan.withOpacity(0.3),
+                        color: AppColors.neonCyan.withValues(alpha: 0.3),
                         blurRadius: 20,
                       ),
                     ],
@@ -119,7 +121,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   labelText: 'Email Address',
                   prefixIcon: Icon(Icons.email_outlined),
                 ),
-                onSubmitted: (_) => _sendReset(ctx, emailCtrl.text, setModalState, () => isSending, (v) => isSending = v),
+                onSubmitted: (_) => _sendReset(ctx, emailCtrl.text,
+                    setModalState, () => isSending, (v) => isSending = v),
               ),
               const SizedBox(height: 20),
 
@@ -129,11 +132,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 child: ElevatedButton.icon(
                   onPressed: isSending
                       ? null
-                      : () => _sendReset(ctx, emailCtrl.text, setModalState,
-                            () => isSending, (v) => setModalState(() => isSending = v)),
+                      : () => _sendReset(
+                          ctx,
+                          emailCtrl.text,
+                          setModalState,
+                          () => isSending,
+                          (v) => setModalState(() => isSending = v)),
                   icon: isSending
                       ? const SizedBox(
-                          width: 16, height: 16,
+                          width: 16,
+                          height: 16,
                           child: CircularProgressIndicator(
                               strokeWidth: 2, color: Colors.white))
                       : const Icon(Icons.send_outlined, size: 18),
@@ -176,23 +184,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (ctx.mounted) {
         Navigator.pop(ctx); // close sheet
         // Show success dialog
+        if (!mounted) return;
         showDialog(
           context: context,
           builder: (_) => AlertDialog(
             backgroundColor: AppColors.surface,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 const SizedBox(height: 8),
                 Container(
-                  width: 64, height: 64,
+                  width: 64,
+                  height: 64,
                   decoration: BoxDecoration(
-                    color: AppColors.neonGreen.withOpacity(0.15),
+                    color: AppColors.neonGreen.withValues(alpha: 0.15),
                     shape: BoxShape.circle,
                     border: Border.all(
-                        color: AppColors.neonGreen.withOpacity(0.5), width: 2),
+                        color: AppColors.neonGreen.withValues(alpha: 0.5),
+                        width: 2),
                   ),
                   child: const Icon(Icons.mark_email_read_outlined,
                       color: AppColors.neonGreen, size: 32),
@@ -245,14 +256,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         default:
           msg = e.message ?? 'Failed to send reset email.';
       }
-      if (ctx.mounted) showSnackBar(ctx, msg, isError: true);
+      if (ctx.mounted) {
+        if (!mounted) return;
+        showSnackBar(ctx, msg, isError: true);
+      }
     } catch (e) {
       setLoading(false);
-      if (ctx.mounted) showSnackBar(ctx, 'Error: $e', isError: true);
+      if (ctx.mounted) {
+        if (!mounted) return;
+        showSnackBar(ctx, 'Error: $e', isError: true);
+      }
     }
   }
 
-  Future<void> _login() async {    if (!_formKey.currentState!.validate()) return;
+  Future<void> _login() async {
+    if (!_formKey.currentState!.validate()) return;
 
     final success = await ref.read(authProvider.notifier).login(
           _emailCtrl.text.trim(),
@@ -296,7 +314,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           borderRadius: BorderRadius.circular(20),
                           boxShadow: [
                             BoxShadow(
-                              color: AppColors.neonCyan.withOpacity(0.35),
+                              color: AppColors.neonCyan.withValues(alpha: 0.35),
                               blurRadius: 28,
                               spreadRadius: 2,
                             ),
@@ -358,9 +376,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         validator: Validators.email,
                         textInputAction: TextInputAction.next,
                       ).animate().fadeIn(delay: 550.ms).slideY(begin: 0.15),
-
                       const SizedBox(height: 14),
-
                       TextFormField(
                         controller: _passwordCtrl,
                         obscureText: _obscurePassword,
@@ -380,7 +396,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         textInputAction: TextInputAction.done,
                         onFieldSubmitted: (_) => _login(),
                       ).animate().fadeIn(delay: 630.ms).slideY(begin: 0.15),
-
                       Align(
                         alignment: Alignment.centerRight,
                         child: TextButton(
@@ -393,9 +408,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   color: AppColors.neonCyan, fontSize: 13)),
                         ),
                       ),
-
                       const SizedBox(height: 8),
-
                       PrimaryGlowButton(
                         label: 'Sign In',
                         onPressed: _login,

@@ -249,7 +249,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           borderRadius: BorderRadius.circular(18),
                           boxShadow: [
                             BoxShadow(
-                              color: AppColors.neonCyan.withOpacity(0.3),
+                              color: AppColors.neonCyan.withValues(alpha: 0.3),
                               blurRadius: 24,
                               spreadRadius: 2,
                             ),
@@ -394,10 +394,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: AppColors.neonCyan.withOpacity(0.06),
+                          color: AppColors.neonCyan.withValues(alpha: 0.06),
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
-                              color: AppColors.neonCyan.withOpacity(0.2)),
+                              color: AppColors.neonCyan.withValues(alpha: 0.2)),
                         ),
                         child: Row(
                           children: [
@@ -501,8 +501,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   ),
                 ),
                 child: _agreedToTerms
-                    ? const Icon(Icons.check,
-                        color: Colors.white, size: 14)
+                    ? const Icon(Icons.check, color: Colors.white, size: 14)
                     : null,
               ),
               const SizedBox(width: 10),

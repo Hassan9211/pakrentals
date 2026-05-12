@@ -121,8 +121,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       return;
     }
     if (!_agreedToTerms) {
-      showSnackBar(context, 'Please agree to the payment terms',
-          isError: true);
+      showSnackBar(context, 'Please agree to the payment terms', isError: true);
       return;
     }
 
@@ -150,9 +149,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
     if (result.isSuccess) {
       // Update booking status in provider
-      await ref
-          .read(bookingsProvider.notifier)
-          .pay(widget.bookingId, 'card');
+      await ref.read(bookingsProvider.notifier).pay(widget.bookingId, 'card');
       _showSuccessSheet();
     } else if (result.isCancelled) {
       showSnackBar(context, 'Payment cancelled');
@@ -198,10 +195,11 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
               width: 80,
               height: 80,
               decoration: BoxDecoration(
-                color: AppColors.neonGreen.withOpacity(0.15),
+                color: AppColors.neonGreen.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
                 border: Border.all(
-                    color: AppColors.neonGreen.withOpacity(0.5), width: 2),
+                    color: AppColors.neonGreen.withValues(alpha: 0.5),
+                    width: 2),
               ),
               child: const Icon(Icons.check_circle_outline,
                   color: AppColors.neonGreen, size: 44),
@@ -249,8 +247,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
             // Booking ref
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               decoration: BoxDecoration(
                 color: AppColors.surfaceVariant,
                 borderRadius: BorderRadius.circular(12),
@@ -260,8 +257,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text('Booking Ref',
-                      style: TextStyle(
-                          color: AppColors.textMuted, fontSize: 12)),
+                      style:
+                          TextStyle(color: AppColors.textMuted, fontSize: 12)),
                   Text(
                     '#${widget.bookingId.toString().padLeft(6, '0')}',
                     style: GoogleFonts.spaceGrotesk(
@@ -320,7 +317,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                 ),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                    color: AppColors.neonCyan.withOpacity(0.25)),
+                    color: AppColors.neonCyan.withValues(alpha: 0.25)),
               ),
               child: Column(
                 children: [
@@ -360,10 +357,10 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                 margin: const EdgeInsets.only(bottom: 16),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF635BFF).withOpacity(0.1),
+                  color: const Color(0xFF635BFF).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                      color: const Color(0xFF635BFF).withOpacity(0.4)),
+                      color: const Color(0xFF635BFF).withValues(alpha: 0.4)),
                 ),
                 child: Row(
                   children: [
@@ -417,12 +414,12 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? method.color.withOpacity(0.08)
+                        ? method.color.withValues(alpha: 0.08)
                         : AppColors.card,
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
                       color: isSelected
-                          ? method.color.withOpacity(0.6)
+                          ? method.color.withValues(alpha: 0.6)
                           : AppColors.border,
                       width: isSelected ? 1.5 : 1,
                     ),
@@ -433,7 +430,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                         width: 44,
                         height: 44,
                         decoration: BoxDecoration(
-                          color: method.color.withOpacity(0.12),
+                          color: method.color.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Center(
@@ -465,9 +462,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                                         horizontal: 6, vertical: 2),
                                     decoration: BoxDecoration(
                                       color: const Color(0xFF635BFF)
-                                          .withOpacity(0.15),
-                                      borderRadius:
-                                          BorderRadius.circular(4),
+                                          .withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: const Text(
                                       'TEST',
@@ -483,8 +479,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                             ),
                             Text(method.subtitle,
                                 style: const TextStyle(
-                                    color: AppColors.textMuted,
-                                    fontSize: 11)),
+                                    color: AppColors.textMuted, fontSize: 11)),
                           ],
                         ),
                       ),
@@ -496,14 +491,10 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: isSelected
-                                ? method.color
-                                : AppColors.border,
+                            color: isSelected ? method.color : AppColors.border,
                             width: 2,
                           ),
-                          color: isSelected
-                              ? method.color
-                              : Colors.transparent,
+                          color: isSelected ? method.color : Colors.transparent,
                         ),
                         child: isSelected
                             ? const Icon(Icons.check,
@@ -513,8 +504,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                     ],
                   ),
                 ),
-              ).animate().fadeIn(
-                  delay: Duration(milliseconds: 150 + i * 60));
+              ).animate().fadeIn(delay: Duration(milliseconds: 150 + i * 60));
             }),
 
             const SizedBox(height: 8),
@@ -554,8 +544,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
             // ── Terms ──────────────────────────────────────────────────
             GestureDetector(
-              onTap: () =>
-                  setState(() => _agreedToTerms = !_agreedToTerms),
+              onTap: () => setState(() => _agreedToTerms = !_agreedToTerms),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -565,9 +554,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                     height: 20,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(5),
-                      gradient: _agreedToTerms
-                          ? AppColors.primaryGradient
-                          : null,
+                      gradient:
+                          _agreedToTerms ? AppColors.primaryGradient : null,
                       border: Border.all(
                         color: _agreedToTerms
                             ? Colors.transparent
@@ -575,8 +563,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                       ),
                     ),
                     child: _agreedToTerms
-                        ? const Icon(Icons.check,
-                            color: Colors.white, size: 13)
+                        ? const Icon(Icons.check, color: Colors.white, size: 13)
                         : null,
                   ),
                   const SizedBox(width: 10),
@@ -603,15 +590,12 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                 duration: const Duration(milliseconds: 200),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
-                  gradient:
-                      _agreedToTerms ? AppColors.primaryGradient : null,
-                  color: _agreedToTerms
-                      ? null
-                      : AppColors.surfaceVariant,
+                  gradient: _agreedToTerms ? AppColors.primaryGradient : null,
+                  color: _agreedToTerms ? null : AppColors.surfaceVariant,
                   boxShadow: _agreedToTerms
                       ? [
                           BoxShadow(
-                            color: AppColors.neonCyan.withOpacity(0.3),
+                            color: AppColors.neonCyan.withValues(alpha: 0.3),
                             blurRadius: 20,
                             offset: const Offset(0, 4),
                           )

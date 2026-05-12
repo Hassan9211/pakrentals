@@ -227,7 +227,7 @@ class PaymentMethodsScreen extends ConsumerWidget {
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.neonCyan.withOpacity(0.25),
+                    color: AppColors.neonCyan.withValues(alpha: 0.25),
                     blurRadius: 24,
                     spreadRadius: 2,
                   ),
@@ -280,7 +280,7 @@ class PaymentMethodsScreen extends ConsumerWidget {
         onAdd: (method) async {
           await ref.read(authProvider.notifier).addPaymentMethod(method);
           if (context.mounted) {
-            showSnackBar(context, '${method.title} added!');
+            showSnackBar(context, '${method.title} added');
           }
         },
       ),
@@ -316,7 +316,9 @@ class PaymentMethodsScreen extends ConsumerWidget {
     ).then((confirmed) {
       if (confirmed == true) {
         ref.read(authProvider.notifier).removePaymentMethod(methodId);
-        showSnackBar(context, 'Payment method removed');
+        if (context.mounted) {
+          showSnackBar(context, 'Payment method removed');
+        }
       }
     });
   }
@@ -344,10 +346,11 @@ class _MethodCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDefault ? cfg.color.withOpacity(0.06) : AppColors.card,
+        color: isDefault ? cfg.color.withValues(alpha: 0.06) : AppColors.card,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isDefault ? cfg.color.withOpacity(0.5) : AppColors.border,
+          color:
+              isDefault ? cfg.color.withValues(alpha: 0.5) : AppColors.border,
           width: isDefault ? 1.5 : 1,
         ),
       ),
@@ -358,7 +361,7 @@ class _MethodCard extends StatelessWidget {
             width: 46,
             height: 46,
             decoration: BoxDecoration(
-              color: cfg.color.withOpacity(0.12),
+              color: cfg.color.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Center(
@@ -388,7 +391,7 @@ class _MethodCard extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: cfg.color.withOpacity(0.15),
+                          color: cfg.color.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
@@ -574,12 +577,12 @@ class _AddMethodSheetState extends State<_AddMethodSheet> {
                         const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? cfg.color.withOpacity(0.15)
+                          ? cfg.color.withValues(alpha: 0.15)
                           : AppColors.surfaceVariant,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
                         color: isSelected
-                            ? cfg.color.withOpacity(0.6)
+                            ? cfg.color.withValues(alpha: 0.6)
                             : AppColors.border,
                         width: isSelected ? 1.5 : 1,
                       ),

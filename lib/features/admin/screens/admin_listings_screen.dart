@@ -5,7 +5,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/helpers.dart';
 
-final adminListingsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+final adminListingsProvider =
+    FutureProvider<List<Map<String, dynamic>>>((ref) async {
   final snap = await FirebaseFirestore.instance
       .collection('listings')
       .get()
@@ -22,16 +23,24 @@ class AdminListingsScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Listings', style: GoogleFonts.syne(fontWeight: FontWeight.w700)),
+        title: Text('Listings',
+            style: GoogleFonts.syne(fontWeight: FontWeight.w700)),
         actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: () => ref.invalidate(adminListingsProvider)),
+          IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: () => ref.invalidate(adminListingsProvider)),
         ],
       ),
       body: listingsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator(color: AppColors.neonCyan)),
-        error: (e, _) => Center(child: Text('Error: $e', style: const TextStyle(color: AppColors.error))),
+        loading: () => const Center(
+            child: CircularProgressIndicator(color: AppColors.neonCyan)),
+        error: (e, _) => Center(
+            child: Text('Error: $e',
+                style: const TextStyle(color: AppColors.error))),
         data: (listings) => listings.isEmpty
-            ? const Center(child: Text('No listings', style: TextStyle(color: AppColors.textMuted)))
+            ? const Center(
+                child: Text('No listings',
+                    style: TextStyle(color: AppColors.textMuted)))
             : ListView.separated(
                 padding: const EdgeInsets.all(16),
                 itemCount: listings.length,
@@ -39,7 +48,9 @@ class AdminListingsScreen extends ConsumerWidget {
                 itemBuilder: (context, i) {
                   final l = listings[i];
                   final status = l['status'] ?? 'active';
-                  final statusColor = status == 'active' ? AppColors.neonGreen : AppColors.textMuted;
+                  final statusColor = status == 'active'
+                      ? AppColors.neonGreen
+                      : AppColors.textMuted;
                   return Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
@@ -54,40 +65,60 @@ class AdminListingsScreen extends ConsumerWidget {
                           children: [
                             Expanded(
                               child: Text(l['title'] ?? 'Untitled',
-                                  style: GoogleFonts.syne(color: AppColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w600),
-                                  maxLines: 1, overflow: TextOverflow.ellipsis),
+                                  style: GoogleFonts.syne(
+                                      color: AppColors.textPrimary,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis),
                             ),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(
-                                color: statusColor.withOpacity(0.12),
+                                color: statusColor.withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: statusColor.withOpacity(0.4)),
+                                border: Border.all(
+                                    color: statusColor.withValues(alpha: 0.4)),
                               ),
                               child: Text(status.toUpperCase(),
-                                  style: TextStyle(color: statusColor, fontSize: 9, fontWeight: FontWeight.w700)),
+                                  style: TextStyle(
+                                      color: statusColor,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w700)),
                             ),
                           ],
                         ),
                         const SizedBox(height: 6),
                         Row(
                           children: [
-                            const Icon(Icons.location_on_outlined, color: AppColors.textMuted, size: 13),
+                            const Icon(Icons.location_on_outlined,
+                                color: AppColors.textMuted, size: 13),
                             const SizedBox(width: 4),
-                            Text(l['city'] ?? '', style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                            Text(l['city'] ?? '',
+                                style: const TextStyle(
+                                    color: AppColors.textMuted, fontSize: 12)),
                             const Spacer(),
                             Text(formatPrice(l['price_per_day'] ?? 0),
-                                style: GoogleFonts.spaceGrotesk(color: AppColors.neonCyan, fontSize: 13, fontWeight: FontWeight.w700)),
-                            const Text('/day', style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                                style: GoogleFonts.spaceGrotesk(
+                                    color: AppColors.neonCyan,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700)),
+                            const Text('/day',
+                                style: TextStyle(
+                                    color: AppColors.textMuted, fontSize: 11)),
                           ],
                         ),
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            const Icon(Icons.person_outlined, color: AppColors.textMuted, size: 13),
+                            const Icon(Icons.person_outlined,
+                                color: AppColors.textMuted, size: 13),
                             const SizedBox(width: 4),
-                            Text('Host: ${l['host_name'] ?? l['host_id'] ?? 'Unknown'}',
-                                style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                            Text(
+                                'Host: ${l['host_name'] ?? l['host_id'] ?? 'Unknown'}',
+                                style: const TextStyle(
+                                    color: AppColors.textMuted, fontSize: 11)),
                           ],
                         ),
                         // Action buttons row
@@ -118,12 +149,14 @@ class AdminListingsScreen extends ConsumerWidget {
                                       horizontal: 8, vertical: 6),
                                   decoration: BoxDecoration(
                                     color: l['is_featured'] == true
-                                        ? AppColors.warning.withOpacity(0.12)
+                                        ? AppColors.warning
+                                            .withValues(alpha: 0.12)
                                         : AppColors.surfaceVariant,
                                     borderRadius: BorderRadius.circular(8),
                                     border: Border.all(
                                       color: l['is_featured'] == true
-                                          ? AppColors.warning.withOpacity(0.4)
+                                          ? AppColors.warning
+                                              .withValues(alpha: 0.4)
                                           : AppColors.border,
                                     ),
                                   ),
@@ -165,18 +198,18 @@ class AdminListingsScreen extends ConsumerWidget {
                             // Delete button
                             Expanded(
                               child: GestureDetector(
-                                onTap: () => _confirmDelete(
-                                    context, ref, l['id'].toString(),
-                                    l['title'] ?? ''),
+                                onTap: () => _confirmDelete(context, ref,
+                                    l['id'].toString(), l['title'] ?? ''),
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 8, vertical: 6),
                                   decoration: BoxDecoration(
-                                    color: AppColors.error.withOpacity(0.1),
+                                    color:
+                                        AppColors.error.withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(8),
                                     border: Border.all(
-                                        color:
-                                            AppColors.error.withOpacity(0.3)),
+                                        color: AppColors.error
+                                            .withValues(alpha: 0.3)),
                                   ),
                                   child: const Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
@@ -209,19 +242,25 @@ class AdminListingsScreen extends ConsumerWidget {
     );
   }
 
-  void _confirmDelete(BuildContext context, WidgetRef ref, String id, String title) {
+  void _confirmDelete(
+      BuildContext context, WidgetRef ref, String id, String title) {
     showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surface,
-        title: Text('Delete Listing', style: GoogleFonts.syne(color: AppColors.textPrimary)),
+        title: Text('Delete Listing',
+            style: GoogleFonts.syne(color: AppColors.textPrimary)),
         content: Text('Delete "$title"? This cannot be undone.',
             style: const TextStyle(color: AppColors.textSecondary)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel', style: TextStyle(color: AppColors.textMuted))),
-          TextButton(onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Delete', style: TextStyle(color: AppColors.error))),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel',
+                  style: TextStyle(color: AppColors.textMuted))),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Delete',
+                  style: TextStyle(color: AppColors.error))),
         ],
       ),
     ).then((confirmed) async {

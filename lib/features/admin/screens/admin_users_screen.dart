@@ -24,8 +24,8 @@ class AdminUsersScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Users',
-            style: GoogleFonts.syne(fontWeight: FontWeight.w700)),
+        title:
+            Text('Users', style: GoogleFonts.syne(fontWeight: FontWeight.w700)),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -58,14 +58,14 @@ class AdminUsersScreen extends ConsumerWidget {
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
                       color: isDisabled
-                          ? AppColors.error.withOpacity(0.05)
+                          ? AppColors.error.withValues(alpha: 0.05)
                           : AppColors.card,
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(
                         color: isAdmin
-                            ? AppColors.neonViolet.withOpacity(0.4)
+                            ? AppColors.neonViolet.withValues(alpha: 0.4)
                             : isDisabled
-                                ? AppColors.error.withOpacity(0.3)
+                                ? AppColors.error.withValues(alpha: 0.3)
                                 : AppColors.border,
                       ),
                     ),
@@ -127,7 +127,7 @@ class AdminUsersScreen extends ConsumerWidget {
                                               horizontal: 6, vertical: 2),
                                           decoration: BoxDecoration(
                                             color: AppColors.error
-                                                .withOpacity(0.15),
+                                                .withValues(alpha: 0.15),
                                             borderRadius:
                                                 BorderRadius.circular(6),
                                           ),
@@ -135,8 +135,7 @@ class AdminUsersScreen extends ConsumerWidget {
                                               style: TextStyle(
                                                   color: AppColors.error,
                                                   fontSize: 9,
-                                                  fontWeight:
-                                                      FontWeight.w700)),
+                                                  fontWeight: FontWeight.w700)),
                                         ),
                                     ],
                                   ),
@@ -159,12 +158,14 @@ class AdminUsersScreen extends ConsumerWidget {
                                   horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(
                                 color: isAdmin
-                                    ? AppColors.neonViolet.withOpacity(0.15)
+                                    ? AppColors.neonViolet
+                                        .withValues(alpha: 0.15)
                                     : AppColors.surfaceVariant,
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
                                   color: isAdmin
-                                      ? AppColors.neonViolet.withOpacity(0.4)
+                                      ? AppColors.neonViolet
+                                          .withValues(alpha: 0.4)
                                       : AppColors.border,
                                 ),
                               ),
@@ -192,17 +193,16 @@ class AdminUsersScreen extends ConsumerWidget {
                               // Disable / Enable toggle
                               Expanded(
                                 child: OutlinedButton.icon(
-                                  onPressed: () => _toggleDisable(
-                                      context, ref, uid, u['name'] ?? '',
-                                      isDisabled),
+                                  onPressed: () => _toggleDisable(context, ref,
+                                      uid, u['name'] ?? '', isDisabled),
                                   icon: Icon(
                                     isDisabled
                                         ? Icons.lock_open_outlined
                                         : Icons.block_outlined,
                                     size: 14,
                                   ),
-                                  label: Text(
-                                      isDisabled ? 'Enable' : 'Disable'),
+                                  label:
+                                      Text(isDisabled ? 'Enable' : 'Disable'),
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: isDisabled
                                         ? AppColors.neonGreen
@@ -211,10 +211,9 @@ class AdminUsersScreen extends ConsumerWidget {
                                         color: isDisabled
                                             ? AppColors.neonGreen
                                             : AppColors.warning),
-                                    padding: const EdgeInsets.symmetric(
-                                        vertical: 6),
-                                    textStyle:
-                                        const TextStyle(fontSize: 12),
+                                    padding:
+                                        const EdgeInsets.symmetric(vertical: 6),
+                                    textStyle: const TextStyle(fontSize: 12),
                                   ),
                                 ),
                               ),
@@ -222,9 +221,8 @@ class AdminUsersScreen extends ConsumerWidget {
                               // Delete button
                               Expanded(
                                 child: OutlinedButton.icon(
-                                  onPressed: () => _confirmDelete(
-                                      context, ref, uid,
-                                      u['name'] ?? '', u['email'] ?? ''),
+                                  onPressed: () => _confirmDelete(context, ref,
+                                      uid, u['name'] ?? '', u['email'] ?? ''),
                                   icon: const Icon(Icons.delete_outline,
                                       size: 14),
                                   label: const Text('Delete'),
@@ -232,10 +230,9 @@ class AdminUsersScreen extends ConsumerWidget {
                                     foregroundColor: AppColors.error,
                                     side: const BorderSide(
                                         color: AppColors.error),
-                                    padding: const EdgeInsets.symmetric(
-                                        vertical: 6),
-                                    textStyle:
-                                        const TextStyle(fontSize: 12),
+                                    padding:
+                                        const EdgeInsets.symmetric(vertical: 6),
+                                    textStyle: const TextStyle(fontSize: 12),
                                   ),
                                 ),
                               ),
@@ -252,15 +249,14 @@ class AdminUsersScreen extends ConsumerWidget {
   }
 
   // ── Disable / Enable user ──────────────────────────────────────────────────
-  Future<void> _toggleDisable(BuildContext context, WidgetRef ref,
-      String uid, String name, bool currentlyDisabled) async {
+  Future<void> _toggleDisable(BuildContext context, WidgetRef ref, String uid,
+      String name, bool currentlyDisabled) async {
     final action = currentlyDisabled ? 'enable' : 'disable';
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surface,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text('${action.capitalize()} User',
             style: GoogleFonts.syne(color: AppColors.textPrimary)),
         content: Text(
@@ -292,20 +288,19 @@ class AdminUsersScreen extends ConsumerWidget {
     });
     ref.invalidate(adminUsersProvider);
     if (context.mounted) {
-      showSnackBar(context,
-          currentlyDisabled ? 'User enabled' : 'User disabled');
+      showSnackBar(
+          context, currentlyDisabled ? 'User enabled' : 'User disabled');
     }
   }
 
   // ── Delete user ────────────────────────────────────────────────────────────
-  Future<void> _confirmDelete(BuildContext context, WidgetRef ref,
-      String uid, String name, String email) async {
+  Future<void> _confirmDelete(BuildContext context, WidgetRef ref, String uid,
+      String name, String email) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surface,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text('Delete User',
             style: GoogleFonts.syne(color: AppColors.textPrimary)),
         content: Column(
@@ -320,10 +315,10 @@ class AdminUsersScreen extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: AppColors.warning.withOpacity(0.1),
+                color: AppColors.warning.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                    color: AppColors.warning.withOpacity(0.3)),
+                border:
+                    Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
               ),
               child: Row(
                 children: [
@@ -334,9 +329,7 @@ class AdminUsersScreen extends ConsumerWidget {
                     child: Text(
                       'To also remove from Firebase Auth, go to Firebase Console → Authentication.',
                       style: const TextStyle(
-                          color: AppColors.warning,
-                          fontSize: 11,
-                          height: 1.4),
+                          color: AppColors.warning, fontSize: 11, height: 1.4),
                     ),
                   ),
                 ],
@@ -372,8 +365,10 @@ class AdminUsersScreen extends ConsumerWidget {
     }
 
     // Delete user's bookings (as renter)
-    final renterBookings =
-        await db.collection('bookings').where('renter_id', isEqualTo: uid).get();
+    final renterBookings = await db
+        .collection('bookings')
+        .where('renter_id', isEqualTo: uid)
+        .get();
     for (final doc in renterBookings.docs) {
       await doc.reference.delete();
     }
@@ -388,10 +383,8 @@ class AdminUsersScreen extends ConsumerWidget {
     }
 
     // Delete user's reports
-    final reports = await db
-        .collection('reports')
-        .where('user_id', isEqualTo: uid)
-        .get();
+    final reports =
+        await db.collection('reports').where('user_id', isEqualTo: uid).get();
     for (final doc in reports.docs) {
       await doc.reference.delete();
     }
@@ -411,8 +404,7 @@ class AdminUsersScreen extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surface,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text('One More Step',
             style: GoogleFonts.syne(color: AppColors.textPrimary)),
         content: Column(
@@ -423,17 +415,15 @@ class AdminUsersScreen extends ConsumerWidget {
             const SizedBox(height: 12),
             Text(
               'User data deleted from database.\n\nTo fully remove "$email" from Firebase Authentication:',
-              style: const TextStyle(
-                  color: AppColors.textSecondary, height: 1.5),
+              style:
+                  const TextStyle(color: AppColors.textSecondary, height: 1.5),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
             Text(
               'Firebase Console → Authentication → Users → Find "$email" → Delete',
               style: const TextStyle(
-                  color: AppColors.neonCyan,
-                  fontSize: 12,
-                  height: 1.5),
+                  color: AppColors.neonCyan, fontSize: 12, height: 1.5),
               textAlign: TextAlign.center,
             ),
           ],
@@ -463,8 +453,7 @@ class AdminUsersScreen extends ConsumerWidget {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 extension StringExtension on String {
-  String capitalize() =>
-      isEmpty ? this : this[0].toUpperCase() + substring(1);
+  String capitalize() => isEmpty ? this : this[0].toUpperCase() + substring(1);
 }
 
 void showSnackBar(BuildContext context, String msg, {bool isError = false}) {

@@ -65,11 +65,30 @@ class BookingsNotifier extends StateNotifier<BookingsState> {
     const adminUid = 't41DI9ZHowUAsk9pgyFd7iJrTsA3';
     final isAdmin = uid == adminUid;
 
-    _bookingsSub = _db
-        .collection('bookings')
-        .snapshots()
-        .listen((snap) async {
-      debugPrint('Bookings snapshot: ${snap.docs.length} total, uid=$uid isAdmin=$isAdmin');
+    // Fix: Instead of listening to ALL bookings (which causes PERMISSION_DENIED),
+    // listen to only relevant ones using queries.
+
+    Query query;
+    if (isAdmin) {
+      query = _db.collection('bookings');
+    } else {
+      // For normal users, we need to listen to bookings where they are EITHER renter OR host.
+      // Firestore doesn't support 'OR' between different fields in a single query easily without 'Filter.or',
+      // so we'll use a query that matches participants if you have such a field,
+      // or we can listen to two separate streams.
+      // For now, let's use the most common approach for security:
+      // Query bookings where user is renter OR host.
+      query = _db.collection('bookings').where(
+            Filter.or(
+              Filter('renter_id', isEqualTo: uid),
+              Filter('host_id', isEqualTo: uid),
+            ),
+          );
+    }
+
+    _bookingsSub = query.snapshots().listen((snap) async {
+      debugPrint(
+          'Bookings snapshot: ${snap.docs.length} relevant, uid=$uid isAdmin=$isAdmin');
 
       final renterDocs = <DocumentSnapshot>[];
       final hostDocs = <DocumentSnapshot>[];
@@ -78,22 +97,19 @@ class BookingsNotifier extends StateNotifier<BookingsState> {
         final data = doc.data() as Map<String, dynamic>;
         final renterId = data['renter_id']?.toString() ?? '';
         final hostId = data['host_id']?.toString() ?? '';
-        debugPrint('  doc=${doc.id} renter=$renterId host=$hostId status=${data['status']}');
 
-        // Renter sees their own bookings
         if (renterId == uid) renterDocs.add(doc);
-
-        // Host sees bookings on their listings
-        // Admin sees ALL bookings as host requests
-        if (isAdmin || hostId == uid) hostDocs.add(doc);
+        if (hostId == uid || isAdmin) hostDocs.add(doc);
       }
 
-      debugPrint('Matched: renter=${renterDocs.length} host=${hostDocs.length}');
+      debugPrint(
+          'Matched: renter=${renterDocs.length} host=${hostDocs.length}');
 
       final renterList = await _convertDocs(renterDocs);
       final hostList = await _convertDocs(hostDocs);
 
-      renterList.sort((a, b) => (b.createdAt ?? '').compareTo(a.createdAt ?? ''));
+      renterList
+          .sort((a, b) => (b.createdAt ?? '').compareTo(a.createdAt ?? ''));
       hostList.sort((a, b) => (b.createdAt ?? '').compareTo(a.createdAt ?? ''));
 
       if (mounted) {
@@ -105,7 +121,9 @@ class BookingsNotifier extends StateNotifier<BookingsState> {
       }
     }, onError: (e) {
       debugPrint('Bookings stream error: $e');
-      if (mounted) state = state.copyWith(isLoading: false, error: e.toString());
+      if (mounted) {
+        state = state.copyWith(isLoading: false, error: e.toString());
+      }
     });
   }
 
@@ -136,8 +154,11 @@ class BookingsNotifier extends StateNotifier<BookingsState> {
       final listingId = data['listing_id']?.toString();
       if (listingId != null && listingId.isNotEmpty) {
         try {
-          final ld = await _db.collection('listings').doc(listingId)
-              .get().timeout(const Duration(seconds: 5));
+          final ld = await _db
+              .collection('listings')
+              .doc(listingId)
+              .get()
+              .timeout(const Duration(seconds: 5));
           if (ld.exists) {
             listing = ListingModel.fromJson({'id': ld.id, ...ld.data()!});
           }
@@ -148,8 +169,11 @@ class BookingsNotifier extends StateNotifier<BookingsState> {
       final renterId = data['renter_id']?.toString();
       if (renterId != null && renterId.isNotEmpty) {
         try {
-          final rd = await _db.collection('users').doc(renterId)
-              .get().timeout(const Duration(seconds: 5));
+          final rd = await _db
+              .collection('users')
+              .doc(renterId)
+              .get()
+              .timeout(const Duration(seconds: 5));
           if (rd.exists) {
             renter = UserModel.fromJson({'id': rd.id, ...rd.data()!});
           }
@@ -159,12 +183,17 @@ class BookingsNotifier extends StateNotifier<BookingsState> {
       final ts = data['created_at'];
       final createdAt = ts is Timestamp ? ts.toDate().toIso8601String() : null;
 
+      UserModel? host;
+      if (listing?.host != null) {
+        host = listing!.host;
+      }
+
       return BookingModel(
         id: doc.id.hashCode,
         firestoreId: doc.id,
         listingId: listing?.id ?? 0,
-        renterId: 0,
-        hostId: 0,
+        renterId: renter?.id ?? 0,
+        hostId: host?.id ?? 0,
         startDate: data['start_date'] ?? '',
         endDate: data['end_date'] ?? '',
         totalDays: (data['total_days'] as num?)?.toInt() ?? 0,
@@ -190,8 +219,11 @@ class BookingsNotifier extends StateNotifier<BookingsState> {
 
     try {
       final listingId = data['listing_id'].toString();
-      final listingDoc = await _db.collection('listings').doc(listingId)
-          .get().timeout(const Duration(seconds: 8));
+      final listingDoc = await _db
+          .collection('listings')
+          .doc(listingId)
+          .get()
+          .timeout(const Duration(seconds: 8));
 
       if (!listingDoc.exists) {
         debugPrint('Listing not found: $listingId');
@@ -267,6 +299,32 @@ class BookingsNotifier extends StateNotifier<BookingsState> {
         'payment_status': 'paid',
         'updated_at': FieldValue.serverTimestamp(),
       });
+
+      // Notify host that payment is made
+      final bookingData =
+          (await _db.collection('bookings').doc(b.firestoreId!).get()).data();
+      final hostId = bookingData?['host_id']?.toString();
+      final listingId = bookingData?['listing_id']?.toString();
+
+      if (hostId != null && hostId.isNotEmpty) {
+        String listingTitle = 'your listing';
+        if (listingId != null) {
+          final ld = await _db.collection('listings').doc(listingId).get();
+          if (ld.exists) listingTitle = ld.data()?['title'] ?? listingTitle;
+        }
+
+        unawaited(_db.collection('notifications').add({
+          'user_id': hostId,
+          'type': 'payment_received',
+          'title': '💰 Payment Received!',
+          'body':
+              'Renter has paid for "$listingTitle". Please prepare for handover.',
+          'booking_id': b.firestoreId,
+          'is_read': false,
+          'created_at': FieldValue.serverTimestamp(),
+        }));
+      }
+
       return true;
     } catch (e) {
       debugPrint('pay error: $e');
@@ -276,7 +334,11 @@ class BookingsNotifier extends StateNotifier<BookingsState> {
 
   BookingModel? _find(int id) {
     final all = [...state.renterBookings, ...state.hostRequests];
-    try { return all.firstWhere((b) => b.id == id); } catch (_) { return null; }
+    try {
+      return all.firstWhere((b) => b.id == id);
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<bool> _updateStatus(int id, String status) async {
@@ -288,7 +350,8 @@ class BookingsNotifier extends StateNotifier<BookingsState> {
         'updated_at': FieldValue.serverTimestamp(),
       });
 
-      final bookingData = (await _db.collection('bookings').doc(b.firestoreId!).get()).data();
+      final bookingData =
+          (await _db.collection('bookings').doc(b.firestoreId!).get()).data();
       final renterId = bookingData?['renter_id']?.toString();
       final listingId = bookingData?['listing_id']?.toString();
 

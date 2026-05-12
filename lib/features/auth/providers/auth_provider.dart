@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/firebase/firebase_auth_service.dart';
+import '../../../core/firebase/firebase_service.dart';
 import '../../../core/firebase/storage_service.dart';
 import '../models/user_model.dart';
 
@@ -48,22 +49,27 @@ class AuthNotifier extends StateNotifier<AuthState> {
     if (firebaseUser == null) return;
 
     try {
+      // Save FCM token
+      FirebaseService.saveFcmToken(firebaseUser.uid);
+
       final data = await FirebaseAuthService.getUserData(firebaseUser.uid);
 
       // Determine role — admin by UID or email
       final isAdmin = firebaseUser.uid == _adminUid ||
           (firebaseUser.email?.toLowerCase() == _adminEmail);
 
-      final userData = data ?? {
-        'id': firebaseUser.uid,
-        'name': firebaseUser.displayName ??
-            firebaseUser.email?.split('@').first ?? 'User',
-        'email': firebaseUser.email ?? '',
-        'role': isAdmin ? 'admin' : 'user',
-        'is_verified': firebaseUser.emailVerified,
-        'cnic_status': 'none',
-        'payment_methods': [],
-      };
+      final userData = data ??
+          {
+            'id': firebaseUser.uid,
+            'name': firebaseUser.displayName ??
+                firebaseUser.email?.split('@').first ??
+                'User',
+            'email': firebaseUser.email ?? '',
+            'role': isAdmin ? 'admin' : 'user',
+            'is_verified': firebaseUser.emailVerified,
+            'cnic_status': 'none',
+            'payment_methods': [],
+          };
 
       // Override role if admin
       if (isAdmin) userData['role'] = 'admin';
@@ -91,6 +97,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
 
       if (userData != null) {
+        FirebaseService.saveFcmToken(userData['id'] ?? '');
         state = state.copyWith(
           isLoading: false,
           user: UserModel.fromJson(userData),
@@ -98,8 +105,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         );
         return true;
       }
-      state = state.copyWith(
-          isLoading: false, error: 'Registration failed');
+      state = state.copyWith(isLoading: false, error: 'Registration failed');
       return false;
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -117,6 +123,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
 
       if (userData != null) {
+        FirebaseService.saveFcmToken(userData['id'] ?? '');
         // Force admin role for admin UID or email
         final isAdmin = FirebaseAuthService.currentUser?.uid == _adminUid ||
             email.trim().toLowerCase() == _adminEmail;
@@ -296,8 +303,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
     final methods = [...current.paymentMethods, newMethod];
     await FirebaseAuthService.updateProfile({
-      'payment_methods':
-          methods.map((m) => m.toJson()).toList(),
+      'payment_methods': methods.map((m) => m.toJson()).toList(),
     });
 
     final updated = _copyUserWith(current, paymentMethods: methods);
@@ -309,12 +315,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
     final current = state.user;
     if (current == null) return;
 
-    var methods = current.paymentMethods
-        .where((m) => m.id != methodId)
-        .toList();
+    var methods =
+        current.paymentMethods.where((m) => m.id != methodId).toList();
 
-    final hadDefault = current.paymentMethods
-        .any((m) => m.id == methodId && m.isDefault);
+    final hadDefault =
+        current.paymentMethods.any((m) => m.id == methodId && m.isDefault);
     if (hadDefault && methods.isNotEmpty) {
       methods = [
         SavedPaymentMethod(
@@ -329,8 +334,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
 
     await FirebaseAuthService.updateProfile({
-      'payment_methods':
-          methods.map((m) => m.toJson()).toList(),
+      'payment_methods': methods.map((m) => m.toJson()).toList(),
     });
 
     final updated = _copyUserWith(current, paymentMethods: methods);
@@ -352,8 +356,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }).toList();
 
     await FirebaseAuthService.updateProfile({
-      'payment_methods':
-          methods.map((m) => m.toJson()).toList(),
+      'payment_methods': methods.map((m) => m.toJson()).toList(),
     });
 
     final updated = _copyUserWith(current, paymentMethods: methods);
@@ -389,7 +392,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 }
 
-final authProvider =
-    StateNotifierProvider<AuthNotifier, AuthState>((ref) {
+final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   return AuthNotifier();
 });

@@ -7,8 +7,8 @@ import '../../auth/providers/auth_provider.dart';
 import '../providers/messages_provider.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
-  final int listingId;
-  final int userId;
+  final String listingId;
+  final String userId;
 
   const ChatScreen({super.key, required this.listingId, required this.userId});
 
@@ -44,8 +44,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     if (text.isEmpty) return;
     _msgCtrl.clear();
     await ref
-        .read(threadProvider((listingId: widget.listingId, userId: widget.userId))
-            .notifier)
+        .read(
+            threadProvider((listingId: widget.listingId, userId: widget.userId))
+                .notifier)
         .sendMessage(text);
     _scrollToBottom();
   }
@@ -86,7 +87,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         itemCount: state.messages.length,
                         itemBuilder: (context, index) {
                           final msg = state.messages[index];
-                          final isMe = msg.senderId == currentUser?.id;
+                          final isMe =
+                              msg.senderId == currentUser?.firestoreId ||
+                                  msg.senderId == currentUser?.id.toString();
                           return _MessageBubble(
                             message: msg.body,
                             isMe: isMe,
@@ -194,9 +197,7 @@ class _MessageBubble extends StatelessWidget {
             bottomLeft: Radius.circular(isMe ? 16 : 4),
             bottomRight: Radius.circular(isMe ? 4 : 16),
           ),
-          border: isMe
-              ? null
-              : Border.all(color: AppColors.border),
+          border: isMe ? null : Border.all(color: AppColors.border),
         ),
         child: Column(
           crossAxisAlignment:
@@ -215,7 +216,7 @@ class _MessageBubble extends StatelessWidget {
                 timeago.format(DateTime.parse(time!)),
                 style: TextStyle(
                   color: isMe
-                      ? Colors.white.withOpacity(0.7)
+                      ? Colors.white.withValues(alpha: 0.7)
                       : AppColors.textMuted,
                   fontSize: 10,
                 ),

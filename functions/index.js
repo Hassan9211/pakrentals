@@ -1,6 +1,7 @@
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { initializeApp } = require("firebase-admin/app");
-const { getFirestore } = require("firebase-admin/firestore");
+const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
 
 initializeApp();
@@ -89,7 +90,7 @@ exports.sendPushOnNotification = onDocumentCreated(
       ) {
         console.log(`Stale token for ${userId}, removing from Firestore.`);
         await db.collection("users").doc(userId).update({
-          fcm_token: getFirestore.FieldValue?.delete() || null,
+          fcm_token: FieldValue.delete(),
         });
       } else {
         console.error("FCM send error:", err);
@@ -98,3 +99,91 @@ exports.sendPushOnNotification = onDocumentCreated(
     }
   }
 );
+
+/**
+ * Scheduled function to check for overdue bookings daily.
+ * Runs at 9:00 AM every day.
+ */
+exports.checkOverdueBookings = onSchedule("every day 09:00", async (event) => {
+  const now = new Date();
+  const todayStr = now.toISOString().split("T")[0]; // YYYY-MM-DD
+
+  console.log(`Checking for overdue bookings on ${todayStr}...`);
+
+  try {
+    // 1. Get all active bookings
+    const activeBookings = await db
+      .collection("bookings")
+      .where("status", "==", "active")
+      .get();
+
+    if (activeBookings.empty) {
+      console.log("No active bookings found.");
+      return null;
+    }
+
+    const overduePromises = [];
+
+    for (const doc of activeBookings.docs) {
+      const booking = doc.data();
+      const endDate = booking.end_date; // YYYY-MM-DD
+
+      // If endDate is before today, it's overdue
+      if (endDate < todayStr) {
+        console.log(`Booking ${doc.id} is overdue (ended ${endDate})`);
+
+        const renterId = booking.renter_id;
+        const hostId = booking.host_id;
+        const listingId = booking.listing_id;
+
+        // Fetch listing title
+        let listingTitle = "item";
+        try {
+          const listingDoc = await db.collection("listings").doc(listingId).get();
+          if (listingDoc.exists) {
+            listingTitle = listingDoc.data()?.title || "item";
+          }
+        } catch (e) {
+          console.error("Error fetching listing title:", e);
+        }
+
+        // Notify Renter
+        overduePromises.push(
+          db.collection("notifications").add({
+            user_id: renterId,
+            type: "overdue_warning",
+            title: "⚠️ Overdue Return Warning",
+            body: `Your return date for "${listingTitle}" has passed (${endDate}). Please return it immediately to avoid penalties.`,
+            booking_id: doc.id,
+            is_read: false,
+            created_at: FieldValue.serverTimestamp(),
+          })
+        );
+
+        // Notify Host
+        overduePromises.push(
+          db.collection("notifications").add({
+            user_id: hostId,
+            type: "overdue_alert",
+            title: "🔔 Overdue Item Alert",
+            body: `The renter has not yet returned "${listingTitle}" (due date was ${endDate}).`,
+            booking_id: doc.id,
+            is_read: false,
+            created_at: FieldValue.serverTimestamp(),
+          })
+        );
+      }
+    }
+
+    if (overduePromises.length > 0) {
+      await Promise.all(overduePromises);
+      console.log(`Sent ${overduePromises.length} overdue notifications.`);
+    } else {
+      console.log("No overdue bookings today.");
+    }
+  } catch (error) {
+    console.error("Error in checkOverdueBookings:", error);
+  }
+
+  return null;
+});

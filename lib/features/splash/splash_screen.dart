@@ -108,7 +108,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                     borderRadius: BorderRadius.circular(26),
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.neonCyan.withOpacity(0.45),
+                        color: AppColors.neonCyan.withValues(alpha: 0.45),
                         blurRadius: 48,
                         spreadRadius: 4,
                       ),
@@ -156,10 +156,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                       ),
                     ),
                   ),
-                )
-                    .animate()
-                    .fadeIn(delay: 350.ms, duration: 600.ms)
-                    .slideY(
+                ).animate().fadeIn(delay: 350.ms, duration: 600.ms).slideY(
                       begin: 0.25,
                       end: 0,
                       delay: 350.ms,
@@ -238,8 +235,8 @@ class _GlowBlob extends StatelessWidget {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    color.withOpacity(0.28),
-                    color.withOpacity(0.0),
+                    color.withValues(alpha: 0.28),
+                    color.withValues(alpha: 0.0),
                   ],
                 ),
               ),
@@ -289,9 +286,8 @@ class _LoadingDotsState extends State<_LoadingDots>
             final opacity = phase < 0.5
                 ? 0.3 + 0.7 * (phase * 2)
                 : 0.3 + 0.7 * ((1 - phase) * 2);
-            final yOffset = phase < 0.5
-                ? -6.0 * (phase * 2)
-                : -6.0 * ((1 - phase) * 2);
+            final yOffset =
+                phase < 0.5 ? -6.0 * (phase * 2) : -6.0 * ((1 - phase) * 2);
             return Transform.translate(
               offset: Offset(0, yOffset),
               child: Container(
@@ -300,7 +296,7 @@ class _LoadingDotsState extends State<_LoadingDots>
                 height: 9,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: AppColors.neonCyan.withOpacity(opacity),
+                  color: AppColors.neonCyan.withValues(alpha: opacity),
                 ),
               ),
             );

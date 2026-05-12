@@ -42,6 +42,20 @@ class PakRentalsApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
 
+    // ── Handle Push Notifications Tap ───────────────────────────────────────
+    FirebaseService.setNotificationTapHandler((message) {
+      final bookingId = message.data['booking_id'];
+      if (bookingId != null) {
+        // Navigate to booking detail screen
+        // We use router.push to allow going back
+        router.push('/booking/$bookingId');
+      } else if (message.data['type'] == 'new_message') {
+        router.push('/messages');
+      } else {
+        router.push('/notifications');
+      }
+    });
+
     return MaterialApp.router(
       title: 'PakRentals',
       debugShowCheckedModeBanner: false,

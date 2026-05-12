@@ -208,7 +208,7 @@ class HomeScreen extends ConsumerWidget {
                   border: Border.all(color: AppColors.border),
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.neonCyan.withOpacity(0.08),
+                      color: AppColors.neonCyan.withValues(alpha: 0.08),
                       blurRadius: 16,
                       offset: const Offset(0, 4),
                     ),
@@ -440,7 +440,7 @@ class HomeScreen extends ConsumerWidget {
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.neonViolet.withOpacity(0.3)),
+        border: Border.all(color: AppColors.neonViolet.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -475,6 +475,7 @@ class HomeScreen extends ConsumerWidget {
       ),
     ).animate().fadeIn(delay: 600.ms);
   }
+
   // -- Shimmer placeholders ─────────────────────────────────────────────
   Widget _buildCategoryShimmer() {
     return SizedBox(

@@ -1,12 +1,12 @@
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../core/services/cloudinary_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/helpers.dart';
 import '../../../shared/widgets/image_source_sheet.dart';
@@ -15,7 +15,6 @@ import '../../../shared/widgets/primary_glow_button.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../home/providers/home_provider.dart';
 import '../models/category_model.dart';
-import '../models/listing_model.dart';
 import '../providers/listings_provider.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -80,39 +79,26 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
     final categories = ref.read(homeProvider).categories;
     final category = categories.firstWhere(
       (c) => c.id == _selectedCategoryId,
-      orElse: () => categories.isNotEmpty ? categories.first : CategoryModel(id: 0, name: 'General'),
+      orElse: () => categories.isNotEmpty
+          ? categories.first
+          : CategoryModel(id: 0, name: 'General'),
     );
 
     try {
-      // 1. Upload images to Firebase Storage if any
+      // 1. Upload images to Cloudinary if any
       List<String> imageUrls = [];
       if (_photos.isNotEmpty) {
-        try {
-          final tempId = DateTime.now().millisecondsSinceEpoch.toString();
-          for (int i = 0; i < _photos.length; i++) {
-            final ref = FirebaseStorage.instance
-                .ref('listings/$tempId/image_$i.jpg');
-            final task = await ref.putFile(
-              _photos[i],
-              SettableMetadata(contentType: 'image/jpeg'),
-            );
-            final url = await task.ref.getDownloadURL();
-            imageUrls.add(url);
-          }
-        } catch (e) {
-          // Use local paths as fallback
-          imageUrls = _photos.map((f) => f.path).toList();
+        imageUrls = await CloudinaryService.uploadMultipleImages(_photos);
+        if (imageUrls.length < _photos.length) {
+          throw 'Failed to upload some images. Please check your internet.';
         }
       }
 
       // 2. Get host's Firebase UID directly from Firebase Auth
-      final hostFirebaseUid =
-          FirebaseAuth.instance.currentUser?.uid ?? '';
+      final hostFirebaseUid = FirebaseAuth.instance.currentUser?.uid ?? '';
 
       // 3. Save listing to Firestore
-      final docRef = await FirebaseFirestore.instance
-          .collection('listings')
-          .add({
+      await FirebaseFirestore.instance.collection('listings').add({
         'title': _titleCtrl.text.trim(),
         'description': _descCtrl.text.trim(),
         'price_per_day': double.parse(_priceCtrl.text.trim()),
@@ -131,24 +117,6 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
         'reviews_count': 0,
         'created_at': FieldValue.serverTimestamp(),
       });
-
-      // 4. Also add to local state for immediate UI update
-      final newListing = ListingModel(
-        id: docRef.id.hashCode,
-        title: _titleCtrl.text.trim(),
-        description: _descCtrl.text.trim(),
-        pricePerDay: double.parse(_priceCtrl.text.trim()),
-        city: _cityCtrl.text.trim(),
-        address: _addressCtrl.text.trim(),
-        images: imageUrls.isNotEmpty
-            ? imageUrls
-            : _photos.map((f) => f.path).toList(),
-        status: 'active',
-        isFeatured: false,
-        category: category,
-        host: user,
-        createdAt: DateTime.now().toIso8601String(),
-      );
 
       ref.read(browseProvider.notifier).loadListings(refresh: true);
       setState(() => _isSubmitting = false);
@@ -427,7 +395,8 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
             decoration: BoxDecoration(
               color: AppColors.surfaceVariant,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.neonCyan.withOpacity(0.3)),
+              border:
+                  Border.all(color: AppColors.neonCyan.withValues(alpha: 0.3)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -484,7 +453,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
                     color: AppColors.surfaceVariant,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: AppColors.neonCyan.withOpacity(0.4),
+                      color: AppColors.neonCyan.withValues(alpha: 0.4),
                       style: BorderStyle.solid,
                     ),
                   ),
@@ -493,14 +462,14 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
                     children: [
                       Icon(
                         Icons.add_photo_alternate_outlined,
-                        color: AppColors.neonCyan.withOpacity(0.7),
+                        color: AppColors.neonCyan.withValues(alpha: 0.7),
                         size: 28,
                       ),
                       const SizedBox(height: 4),
                       Text(
                         'Add Photo',
                         style: TextStyle(
-                          color: AppColors.neonCyan.withOpacity(0.7),
+                          color: AppColors.neonCyan.withValues(alpha: 0.7),
                           fontSize: 10,
                         ),
                       ),

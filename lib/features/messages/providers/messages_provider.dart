@@ -53,18 +53,19 @@ class ConversationsNotifier extends StateNotifier<ConversationsState> {
 
       final convs = snap.docs.map((doc) {
         final data = doc.data();
-        final participants =
-            List<String>.from(data['participants'] ?? []);
+        final participants = List<String>.from(data['participants'] ?? []);
         final otherUid =
             participants.firstWhere((p) => p != _uid, orElse: () => '');
 
         return ConversationModel(
           id: doc.id.hashCode,
-          listingId: (data['listing_id']?.toString() ?? '').hashCode,
+          firestoreId: doc.id,
+          listingId: data['listing_id']?.toString() ?? '',
           listingTitle: data['listing_title'] ?? '',
           otherUser: otherUid.isNotEmpty
               ? UserModel(
                   id: otherUid.hashCode,
+                  firestoreId: otherUid,
                   name: data['other_user_name'] ?? 'User',
                   email: data['other_user_email'] ?? '',
                 )
@@ -72,8 +73,8 @@ class ConversationsNotifier extends StateNotifier<ConversationsState> {
           lastMessage: data['last_message'] != null
               ? MessageModel(
                   id: 0,
-                  conversationId: doc.id.hashCode,
-                  senderId: 0,
+                  conversationId: doc.id,
+                  senderId: data['last_sender_id'] ?? '',
                   body: data['last_message'] ?? '',
                   isRead: (data['unread_count_$_uid'] ?? 0) == 0,
                   createdAt: (data['updated_at'] as dynamic)
@@ -86,9 +87,8 @@ class ConversationsNotifier extends StateNotifier<ConversationsState> {
       }).toList();
 
       // Sort by updated_at
-      convs.sort((a, b) =>
-          (b.lastMessage?.createdAt ?? '')
-              .compareTo(a.lastMessage?.createdAt ?? ''));
+      convs.sort((a, b) => (b.lastMessage?.createdAt ?? '')
+          .compareTo(a.lastMessage?.createdAt ?? ''));
 
       state = state.copyWith(isLoading: false, conversations: convs);
     } catch (e) {
@@ -131,20 +131,19 @@ class ThreadState {
 }
 
 class ThreadNotifier extends StateNotifier<ThreadState> {
-  final int listingId;
-  final int userId;
+  final String listingId;
+  final String userId;
   static final _db = FirebaseFirestore.instance;
   StreamSubscription? _sub;
 
-  ThreadNotifier(this.listingId, this.userId)
-      : super(const ThreadState()) {
+  ThreadNotifier(this.listingId, this.userId) : super(const ThreadState()) {
     _listen();
   }
 
   String get _uid => FirebaseAuth.instance.currentUser?.uid ?? '';
 
   String get _convId {
-    final sorted = [_uid, userId.toString()]..sort();
+    final sorted = [_uid, userId]..sort();
     return '${listingId}_${sorted.join('_')}';
   }
 
@@ -164,13 +163,13 @@ class ThreadNotifier extends StateNotifier<ThreadState> {
         final ts = data['created_at'];
         return MessageModel(
           id: doc.id.hashCode,
-          conversationId: _convId.hashCode,
-          senderId: (data['sender_id'] ?? '').hashCode,
+          firestoreId: doc.id,
+          conversationId: _convId,
+          senderId: data['sender_id']?.toString() ?? '',
           body: data['body'] ?? '',
           isRead: data['is_read'] ?? false,
-          createdAt: ts is dynamic && ts != null
-              ? (ts as dynamic).toDate().toIso8601String()
-              : null,
+          createdAt:
+              ts != null ? (ts as dynamic).toDate().toIso8601String() : null,
         );
       }).toList();
 
@@ -190,12 +189,12 @@ class ThreadNotifier extends StateNotifier<ThreadState> {
 
       // Create/update conversation doc
       await convRef.set({
-        'listing_id': listingId.toString(),
-        'participants': [_uid, userId.toString()],
+        'listing_id': listingId,
+        'participants': [_uid, userId],
         'last_message': body,
         'last_sender_id': _uid,
         'updated_at': FieldValue.serverTimestamp(),
-        'unread_count_${userId.toString()}': FieldValue.increment(1),
+        'unread_count_$userId': FieldValue.increment(1),
       }, SetOptions(merge: true));
 
       // Add message
@@ -205,6 +204,20 @@ class ThreadNotifier extends StateNotifier<ThreadState> {
         'is_read': false,
         'created_at': FieldValue.serverTimestamp(),
       });
+
+      // Notify recipient
+      unawaited(_db.collection('notifications').add({
+        'user_id': userId,
+        'type': 'new_message',
+        'title': '📩 New Message',
+        'body': body.length > 50 ? '${body.substring(0, 50)}...' : body,
+        'data': {
+          'listing_id': listingId,
+          'sender_id': _uid,
+        },
+        'is_read': false,
+        'created_at': FieldValue.serverTimestamp(),
+      }));
 
       state = state.copyWith(isSending: false);
       return true;
@@ -222,7 +235,7 @@ class ThreadNotifier extends StateNotifier<ThreadState> {
   }
 }
 
-final threadProvider = StateNotifierProvider.family<ThreadNotifier,
-    ThreadState, ({int listingId, int userId})>((ref, params) {
+final threadProvider = StateNotifierProvider.family<ThreadNotifier, ThreadState,
+    ({String listingId, String userId})>((ref, params) {
   return ThreadNotifier(params.listingId, params.userId);
 });

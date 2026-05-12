@@ -164,7 +164,7 @@ class MyListingsScreen extends ConsumerWidget {
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.neonCyan.withOpacity(0.3),
+                    color: AppColors.neonCyan.withValues(alpha: 0.3),
                     blurRadius: 30,
                     spreadRadius: 4,
                   ),

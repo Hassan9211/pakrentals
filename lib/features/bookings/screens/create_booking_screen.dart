@@ -130,10 +130,10 @@ class _CreateBookingScreenState extends ConsumerState<CreateBookingScreen> {
                   weekendTextStyle: const TextStyle(color: AppColors.textSecondary),
                   outsideTextStyle: const TextStyle(color: AppColors.textMuted),
                   todayDecoration: BoxDecoration(
-                    color: AppColors.neonViolet.withOpacity(0.3),
+                    color: AppColors.neonViolet.withValues(alpha: 0.3),
                     shape: BoxShape.circle,
                   ),
-                  rangeHighlightColor: AppColors.neonCyan.withOpacity(0.15),
+                  rangeHighlightColor: AppColors.neonCyan.withValues(alpha: 0.15),
                   rangeStartDecoration: const BoxDecoration(
                     color: AppColors.neonCyan,
                     shape: BoxShape.circle,

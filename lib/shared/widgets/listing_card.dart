@@ -31,7 +31,8 @@ class ListingCard extends ConsumerWidget {
     // ── Read live saved state from wishlist provider ───────────────────────
     // This rebuilds the heart icon whenever wishlist changes
     final isSaved = ref.watch(
-      wishlistProvider.select((s) => s.savedIds.contains(listing.id)),
+      wishlistProvider.select((s) =>
+          s.savedIds.contains(listing.firestoreId ?? listing.id.toString())),
     );
 
     return GestureDetector(
@@ -50,8 +51,8 @@ class ListingCard extends ConsumerWidget {
               child: Stack(
                 children: [
                   ClipRRect(
-                    borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(15)),
+                    borderRadius:
+                        const BorderRadius.vertical(top: Radius.circular(15)),
                     child: imageUrl.isNotEmpty
                         ? _buildImage(imageUrl)
                         : _imagePlaceholder(),
@@ -94,12 +95,12 @@ class ListingCard extends ConsumerWidget {
                           padding: const EdgeInsets.all(6),
                           decoration: BoxDecoration(
                             color: isSaved
-                                ? AppColors.neonPink.withOpacity(0.15)
-                                : AppColors.background.withOpacity(0.75),
+                                ? AppColors.neonPink.withValues(alpha: 0.15)
+                                : AppColors.background.withValues(alpha: 0.75),
                             shape: BoxShape.circle,
                             border: Border.all(
                               color: isSaved
-                                  ? AppColors.neonPink.withOpacity(0.5)
+                                  ? AppColors.neonPink.withValues(alpha: 0.5)
                                   : Colors.transparent,
                             ),
                           ),
@@ -136,9 +137,7 @@ class ListingCard extends ConsumerWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-
                   const SizedBox(height: 3),
-
                   Text(
                     listing.title,
                     style: GoogleFonts.syne(
@@ -150,9 +149,7 @@ class ListingCard extends ConsumerWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-
                   const SizedBox(height: 5),
-
                   Row(
                     children: [
                       const Icon(Icons.location_on_outlined,
@@ -169,9 +166,7 @@ class ListingCard extends ConsumerWidget {
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 6),
-
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -197,8 +192,7 @@ class ListingCard extends ConsumerWidget {
                             Text(
                               listing.avgRating!.toStringAsFixed(1),
                               style: const TextStyle(
-                                  color: AppColors.textSecondary,
-                                  fontSize: 11),
+                                  color: AppColors.textSecondary, fontSize: 11),
                             ),
                           ],
                         ),
@@ -239,8 +233,7 @@ class ListingCard extends ConsumerWidget {
       height: double.infinity,
       color: AppColors.surfaceVariant,
       child: const Center(
-        child: Icon(Icons.image_outlined,
-            color: AppColors.textMuted, size: 32),
+        child: Icon(Icons.image_outlined, color: AppColors.textMuted, size: 32),
       ),
     );
   }

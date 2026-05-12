@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -25,14 +26,14 @@ final FlutterLocalNotificationsPlugin _localNotif =
 
 class FirebaseService {
   static final _db = FirebaseFirestore.instance;
+  static Function(RemoteMessage)? _onNotificationTap;
 
   static Future<void> init() async {
     // 1. Init Firebase
     await Firebase.initializeApp();
 
     // 2. FCM background handler
-    FirebaseMessaging.onBackgroundMessage(
-        _firebaseMessagingBackgroundHandler);
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
     // 3. Local notifications setup
     await _localNotif.initialize(
@@ -40,6 +41,12 @@ class FirebaseService {
         android: AndroidInitializationSettings('@mipmap/ic_launcher'),
         iOS: DarwinInitializationSettings(),
       ),
+      onDidReceiveNotificationResponse: (details) {
+        // Handle local notification tap
+        if (_onNotificationTap != null && details.payload != null) {
+          // You could parse the payload here if needed
+        }
+      },
     );
 
     // 4. Create Android notification channel
@@ -48,12 +55,22 @@ class FirebaseService {
             AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(_channel);
 
+    // Request permissions for high importance notifications (Android 13+)
+    if (Platform.isAndroid) {
+      final androidPlugin = _localNotif.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      await androidPlugin?.requestNotificationsPermission();
+    }
+
     // 5. Request FCM permission
-    await FirebaseMessaging.instance.requestPermission(
+    final settings = await FirebaseMessaging.instance.requestPermission(
       alert: true,
       badge: true,
       sound: true,
+      provisional: false,
     );
+    debugPrint(
+        'User notification permission status: ${settings.authorizationStatus}');
 
     // 6. Foreground message handler — show local notification
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
@@ -73,28 +90,48 @@ class FirebaseService {
               priority: Priority.high,
             ),
           ),
+          payload: message.data['booking_id'],
         );
       }
     });
 
-    // 7. Save FCM token when user is already logged in at startup
+    // 7. Handle notification click when app is in background but still running
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      if (_onNotificationTap != null) {
+        _onNotificationTap!(message);
+      }
+    });
+
+    // 8. Save FCM token when user is already logged in at startup
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       await saveFcmToken(user.uid);
     }
 
-    // 8. Listen for auth changes → save token on login
+    // 9. Listen for auth changes → save token on login
     FirebaseAuth.instance.authStateChanges().listen((user) async {
       if (user != null) {
         await saveFcmToken(user.uid);
       }
     });
 
-    // 9. Listen for token refresh → update Firestore
+    // 10. Listen for token refresh → update Firestore
     FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid != null) {
         await _saveTokenToFirestore(uid, newToken);
+      }
+    });
+  }
+
+  /// Register a callback to handle notification taps
+  static void setNotificationTapHandler(Function(RemoteMessage) handler) {
+    _onNotificationTap = handler;
+
+    // Check if app was opened from a terminated state via a notification
+    FirebaseMessaging.instance.getInitialMessage().then((message) {
+      if (message != null) {
+        handler(message);
       }
     });
   }
@@ -118,9 +155,11 @@ class FirebaseService {
         {
           'fcm_token': token,
           'fcm_token_updated_at': FieldValue.serverTimestamp(),
+          'platform': 'android', // For debugging
         },
         SetOptions(merge: true),
       ).timeout(const Duration(seconds: 8));
+      debugPrint('FCM Token successfully synced to Firestore for $uid');
     } catch (e) {
       debugPrint('_saveTokenToFirestore error: $e');
     }
@@ -142,8 +181,7 @@ class FirebaseService {
   }
 
   /// Get current FCM token
-  static Future<String?> getFcmToken() =>
-      FirebaseMessaging.instance.getToken();
+  static Future<String?> getFcmToken() => FirebaseMessaging.instance.getToken();
 
   /// Show a local notification immediately (for in-app events)
   static Future<void> showLocalNotification({

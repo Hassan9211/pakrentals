@@ -14,7 +14,6 @@ import '../../../shared/widgets/glass_card.dart';
 import '../../../shared/widgets/primary_glow_button.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../wishlist/providers/wishlist_provider.dart';
-import '../models/review_model.dart';
 import '../providers/listings_provider.dart';
 
 class ListingDetailScreen extends ConsumerStatefulWidget {
@@ -161,16 +160,12 @@ class _ListingDetailScreenState extends ConsumerState<ListingDetailScreen> {
                 width: double.infinity,
                 onPressed: () async {
                   final user = ref.read(authProvider).user;
-                  final uid =
-                      FirebaseAuth.instance.currentUser?.uid ?? '';
+                  final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
                   // Save to Firestore
                   try {
-                    final listing = ref
-                        .read(listingDetailProvider(listingId))
-                        .listing;
-                    await FirebaseFirestore.instance
-                        .collection('reviews')
-                        .add({
+                    final listing =
+                        ref.read(listingDetailProvider(listingId)).listing;
+                    await FirebaseFirestore.instance.collection('reviews').add({
                       'listing_id':
                           listing?.firestoreId ?? listingId.toString(),
                       'user_id': uid,
@@ -182,11 +177,12 @@ class _ListingDetailScreenState extends ConsumerState<ListingDetailScreen> {
                       'created_at': FieldValue.serverTimestamp(),
                     });
                   } catch (_) {}
-                  ref
-                      .read(listingDetailProvider(listingId).notifier)
-                      .load();
-                  if (ctx.mounted) Navigator.pop(ctx);
-                  showSnackBar(context, 'Review submitted! ⭐');
+                  ref.read(listingDetailProvider(listingId).notifier).load();
+                  if (ctx.mounted) {
+                    Navigator.pop(ctx);
+                    if (!mounted) return;
+                    showSnackBar(context, 'Review submitted! ⭐');
+                  }
                 },
               ),
             ],
@@ -257,7 +253,7 @@ class _ListingDetailScreenState extends ConsumerState<ListingDetailScreen> {
               child: Container(
                 margin: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: AppColors.background.withOpacity(0.8),
+                  color: AppColors.background.withValues(alpha: 0.8),
                   shape: BoxShape.circle,
                 ),
                 child:
@@ -273,7 +269,7 @@ class _ListingDetailScreenState extends ConsumerState<ListingDetailScreen> {
                   margin: const EdgeInsets.all(8),
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AppColors.background.withOpacity(0.8),
+                    color: AppColors.background.withValues(alpha: 0.8),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -481,11 +477,12 @@ class _ListingDetailScreenState extends ConsumerState<ListingDetailScreen> {
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 12, vertical: 7),
                                 decoration: BoxDecoration(
-                                  color: AppColors.neonCyan.withOpacity(0.12),
+                                  color: AppColors.neonCyan
+                                      .withValues(alpha: 0.12),
                                   borderRadius: BorderRadius.circular(10),
                                   border: Border.all(
-                                      color:
-                                          AppColors.neonCyan.withOpacity(0.4)),
+                                      color: AppColors.neonCyan
+                                          .withValues(alpha: 0.4)),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
@@ -745,16 +742,14 @@ class _ListingDetailScreenState extends ConsumerState<ListingDetailScreen> {
                     fontWeight: FontWeight.w800),
               ),
               const Text('per day',
-                  style:
-                      TextStyle(color: AppColors.textMuted, fontSize: 10)),
+                  style: TextStyle(color: AppColors.textMuted, fontSize: 10)),
             ],
           ),
           const SizedBox(width: 12),
           // Message host
           if (listing.host != null)
             GestureDetector(
-              onTap: () =>
-                  _messageHost(context, listing.host!.id, listing.id),
+              onTap: () => _messageHost(context, listing.host!.id, listing.id),
               child: Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(

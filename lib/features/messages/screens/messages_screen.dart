@@ -132,9 +132,12 @@ class MessagesScreen extends ConsumerWidget {
                             ],
                           ],
                         ),
-                        onTap: () => context.push(
-                          '/messages/${conv.listingId}/${conv.otherUser?.id ?? 0}',
-                        ),
+                        onTap: () {
+                          final otherUserId = conv.otherUser?.firestoreId ?? conv.otherUser?.id.toString() ?? '0';
+                          context.push(
+                            '/messages/${conv.listingId}/$otherUserId',
+                          );
+                        },
                       );
                     },
                   ),

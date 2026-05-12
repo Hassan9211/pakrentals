@@ -29,7 +29,7 @@ class PrimaryGlowButton extends StatelessWidget {
         gradient: gradient ?? AppColors.primaryGradient,
         boxShadow: [
           BoxShadow(
-            color: AppColors.neonCyan.withOpacity(0.3),
+            color: AppColors.neonCyan.withValues(alpha: 0.3),
             blurRadius: 20,
             spreadRadius: 0,
             offset: const Offset(0, 4),

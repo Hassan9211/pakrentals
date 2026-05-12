@@ -6,7 +6,8 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/helpers.dart';
 
 // Payouts = paid bookings grouped by host
-final adminPayoutsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+final adminPayoutsProvider =
+    FutureProvider<List<Map<String, dynamic>>>((ref) async {
   final snap = await FirebaseFirestore.instance
       .collection('bookings')
       .where('status', isEqualTo: 'paid')
@@ -69,25 +70,35 @@ class AdminPayoutsScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Payouts', style: GoogleFonts.syne(fontWeight: FontWeight.w700)),
+        title: Text('Payouts',
+            style: GoogleFonts.syne(fontWeight: FontWeight.w700)),
         actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: () => ref.invalidate(adminPayoutsProvider)),
+          IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: () => ref.invalidate(adminPayoutsProvider)),
         ],
       ),
       body: payoutsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator(color: AppColors.neonCyan)),
-        error: (e, _) => Center(child: Text('Error: $e', style: const TextStyle(color: AppColors.error))),
+        loading: () => const Center(
+            child: CircularProgressIndicator(color: AppColors.neonCyan)),
+        error: (e, _) => Center(
+            child: Text('Error: $e',
+                style: const TextStyle(color: AppColors.error))),
         data: (payouts) => payouts.isEmpty
             ? Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.payments_outlined, color: AppColors.textMuted, size: 48),
+                    const Icon(Icons.payments_outlined,
+                        color: AppColors.textMuted, size: 48),
                     const SizedBox(height: 12),
-                    Text('No payouts yet', style: GoogleFonts.syne(color: AppColors.textMuted, fontSize: 16)),
+                    Text('No payouts yet',
+                        style: GoogleFonts.syne(
+                            color: AppColors.textMuted, fontSize: 16)),
                     const SizedBox(height: 6),
                     const Text('Payouts appear when bookings are paid',
-                        style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                        style: TextStyle(
+                            color: AppColors.textMuted, fontSize: 12)),
                   ],
                 ),
               )
@@ -102,7 +113,8 @@ class AdminPayoutsScreen extends ConsumerWidget {
                         colors: [Color(0xFF0A1A2E), Color(0xFF1A0A2E)],
                       ),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppColors.neonCyan.withOpacity(0.25)),
+                      border: Border.all(
+                          color: AppColors.neonCyan.withValues(alpha: 0.25)),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -111,22 +123,31 @@ class AdminPayoutsScreen extends ConsumerWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text('Total Revenue',
-                                style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                                style: TextStyle(
+                                    color: AppColors.textMuted, fontSize: 12)),
                             Text(
-                              formatPrice(payouts.fold(0.0,
-                                  (sum, p) => sum + (p['total_earnings'] as double))),
+                              formatPrice(payouts.fold(
+                                  0.0,
+                                  (total, p) =>
+                                      total + (p['total_earnings'] as double))),
                               style: GoogleFonts.syne(
-                                  color: AppColors.neonCyan, fontSize: 22, fontWeight: FontWeight.w800),
+                                  color: AppColors.neonCyan,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w800),
                             ),
                           ],
                         ),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            const Text('Hosts', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                            const Text('Hosts',
+                                style: TextStyle(
+                                    color: AppColors.textMuted, fontSize: 12)),
                             Text('${payouts.length}',
                                 style: GoogleFonts.syne(
-                                    color: AppColors.neonViolet, fontSize: 22, fontWeight: FontWeight.w800)),
+                                    color: AppColors.neonViolet,
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w800)),
                           ],
                         ),
                       ],
@@ -149,7 +170,8 @@ class AdminPayoutsScreen extends ConsumerWidget {
                           child: Row(
                             children: [
                               Container(
-                                width: 44, height: 44,
+                                width: 44,
+                                height: 44,
                                 decoration: const BoxDecoration(
                                   gradient: AppColors.primaryGradient,
                                   shape: BoxShape.circle,
@@ -157,7 +179,9 @@ class AdminPayoutsScreen extends ConsumerWidget {
                                 child: Center(
                                   child: Text(
                                     getInitials(p['host_name']?.toString()),
-                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w700),
                                   ),
                                 ),
                               ),
@@ -167,19 +191,28 @@ class AdminPayoutsScreen extends ConsumerWidget {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(p['host_name'] ?? 'Unknown',
-                                        style: const TextStyle(color: AppColors.textPrimary,
-                                            fontWeight: FontWeight.w600, fontSize: 14)),
+                                        style: const TextStyle(
+                                            color: AppColors.textPrimary,
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 14)),
                                     Text(p['host_email'] ?? '',
-                                        style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
-                                    Text('${p['booking_count']} paid booking${p['booking_count'] == 1 ? '' : 's'}',
-                                        style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                                        style: const TextStyle(
+                                            color: AppColors.textMuted,
+                                            fontSize: 11)),
+                                    Text(
+                                        '${p['booking_count']} paid booking${p['booking_count'] == 1 ? '' : 's'}',
+                                        style: const TextStyle(
+                                            color: AppColors.textMuted,
+                                            fontSize: 11)),
                                   ],
                                 ),
                               ),
                               Text(
                                 formatPrice(p['total_earnings'] ?? 0),
                                 style: GoogleFonts.syne(
-                                    color: AppColors.neonGreen, fontSize: 15, fontWeight: FontWeight.w700),
+                                    color: AppColors.neonGreen,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700),
                               ),
                             ],
                           ),

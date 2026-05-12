@@ -116,7 +116,7 @@ class AppTheme {
       ),
       chipTheme: ChipThemeData(
         backgroundColor: AppColors.surfaceVariant,
-        selectedColor: AppColors.neonCyan.withOpacity(0.2),
+        selectedColor: AppColors.neonCyan.withValues(alpha: 0.2),
         labelStyle: const TextStyle(color: AppColors.textSecondary),
         side: const BorderSide(color: AppColors.border),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),

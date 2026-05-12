@@ -1,11 +1,9 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/helpers.dart';
-import '../../auth/providers/auth_provider.dart';
 import '../models/booking_model.dart';
 import '../providers/bookings_provider.dart';
 
@@ -102,14 +100,11 @@ class BookingsScreen extends ConsumerWidget {
           backgroundColor: AppColors.surface,
           child: state.isLoading
               ? const Center(
-                  child:
-                      CircularProgressIndicator(color: AppColors.neonCyan))
+                  child: CircularProgressIndicator(color: AppColors.neonCyan))
               : TabBarView(
                   children: [
-                    _BookingList(
-                        bookings: state.renterBookings, isHost: false),
-                    _BookingList(
-                        bookings: state.hostRequests, isHost: true),
+                    _BookingList(bookings: state.renterBookings, isHost: false),
+                    _BookingList(bookings: state.hostRequests, isHost: true),
                   ],
                 ),
         ),
@@ -137,16 +132,14 @@ class _BookingList extends ConsumerWidget {
             const SizedBox(height: 12),
             Text(
               isHost ? 'No booking requests yet' : 'No bookings yet',
-              style: GoogleFonts.syne(
-                  color: AppColors.textMuted, fontSize: 16),
+              style: GoogleFonts.syne(color: AppColors.textMuted, fontSize: 16),
             ),
             const SizedBox(height: 6),
             Text(
               isHost
                   ? 'When renters book your listings, requests appear here'
                   : 'Browse listings and make your first booking',
-              style: const TextStyle(
-                  color: AppColors.textMuted, fontSize: 12),
+              style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
               textAlign: TextAlign.center,
             ),
             if (!isHost) ...[
@@ -198,9 +191,8 @@ class _BookingCard extends ConsumerWidget {
           // ── Tappable header ────────────────────────────────────────
           InkWell(
             onTap: () => context.push(
-                '/booking/${booking.id}?host=${isHost ? '1' : '0'}'),
-            borderRadius:
-                const BorderRadius.vertical(top: Radius.circular(16)),
+                '/booking/${booking.firestoreId ?? booking.id}?host=${isHost ? '1' : '0'}'),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
               child: Column(
@@ -226,10 +218,10 @@ class _BookingCard extends ConsumerWidget {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: statusColor.withOpacity(0.15),
+                          color: statusColor.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                              color: statusColor.withOpacity(0.4)),
+                              color: statusColor.withValues(alpha: 0.4)),
                         ),
                         child: Text(
                           bookingStatusLabel(booking.status),

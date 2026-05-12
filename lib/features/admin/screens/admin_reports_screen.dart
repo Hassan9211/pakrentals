@@ -5,7 +5,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/helpers.dart';
 
-final adminReportsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+final adminReportsProvider =
+    FutureProvider<List<Map<String, dynamic>>>((ref) async {
   final snap = await FirebaseFirestore.instance
       .collection('reports')
       .get()
@@ -22,22 +23,31 @@ class AdminReportsScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Reports', style: GoogleFonts.syne(fontWeight: FontWeight.w700)),
+        title: Text('Reports',
+            style: GoogleFonts.syne(fontWeight: FontWeight.w700)),
         actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: () => ref.invalidate(adminReportsProvider)),
+          IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: () => ref.invalidate(adminReportsProvider)),
         ],
       ),
       body: reportsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator(color: AppColors.neonCyan)),
-        error: (e, _) => Center(child: Text('Error: $e', style: const TextStyle(color: AppColors.error))),
+        loading: () => const Center(
+            child: CircularProgressIndicator(color: AppColors.neonCyan)),
+        error: (e, _) => Center(
+            child: Text('Error: $e',
+                style: const TextStyle(color: AppColors.error))),
         data: (reports) => reports.isEmpty
             ? Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.flag_outlined, color: AppColors.textMuted, size: 48),
+                    const Icon(Icons.flag_outlined,
+                        color: AppColors.textMuted, size: 48),
                     const SizedBox(height: 12),
-                    Text('No reports', style: GoogleFonts.syne(color: AppColors.textMuted, fontSize: 16)),
+                    Text('No reports',
+                        style: GoogleFonts.syne(
+                            color: AppColors.textMuted, fontSize: 16)),
                   ],
                 ),
               )
@@ -52,7 +62,9 @@ class AdminReportsScreen extends ConsumerWidget {
                   final type = r['type'] ?? 'general';
                   final ts = r['created_at'];
                   String dateStr = '';
-                  if (ts is Timestamp) dateStr = formatDate(ts.toDate().toIso8601String());
+                  if (ts is Timestamp) {
+                    dateStr = formatDate(ts.toDate().toIso8601String());
+                  }
 
                   return Container(
                     padding: const EdgeInsets.all(14),
@@ -60,7 +72,9 @@ class AdminReportsScreen extends ConsumerWidget {
                       color: AppColors.card,
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(
-                        color: isOpen ? AppColors.error.withOpacity(0.4) : AppColors.border,
+                        color: isOpen
+                            ? AppColors.error.withValues(alpha: 0.4)
+                            : AppColors.border,
                       ),
                     ),
                     child: Column(
@@ -69,45 +83,65 @@ class AdminReportsScreen extends ConsumerWidget {
                         Row(
                           children: [
                             Icon(Icons.flag_outlined,
-                                color: isOpen ? AppColors.error : AppColors.textMuted, size: 16),
+                                color: isOpen
+                                    ? AppColors.error
+                                    : AppColors.textMuted,
+                                size: 16),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(r['subject'] ?? 'No subject',
-                                  style: const TextStyle(color: AppColors.textPrimary,
-                                      fontWeight: FontWeight.w600, fontSize: 14),
-                                  maxLines: 1, overflow: TextOverflow.ellipsis),
+                                  style: const TextStyle(
+                                      color: AppColors.textPrimary,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis),
                             ),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(
-                                color: isOpen ? AppColors.error.withOpacity(0.12) : AppColors.surfaceVariant,
+                                color: isOpen
+                                    ? AppColors.error.withValues(alpha: 0.12)
+                                    : AppColors.surfaceVariant,
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(status.toUpperCase(),
                                   style: TextStyle(
-                                      color: isOpen ? AppColors.error : AppColors.textMuted,
-                                      fontSize: 9, fontWeight: FontWeight.w700)),
+                                      color: isOpen
+                                          ? AppColors.error
+                                          : AppColors.textMuted,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w700)),
                             ),
                           ],
                         ),
                         const SizedBox(height: 6),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
                             color: AppColors.surfaceVariant,
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(type.toUpperCase(),
-                              style: const TextStyle(color: AppColors.textMuted, fontSize: 10)),
+                              style: const TextStyle(
+                                  color: AppColors.textMuted, fontSize: 10)),
                         ),
                         const SizedBox(height: 6),
                         if (r['description'] != null)
                           Text(r['description'].toString(),
-                              style: const TextStyle(color: AppColors.textSecondary, fontSize: 12, height: 1.4),
-                              maxLines: 3, overflow: TextOverflow.ellipsis),
+                              style: const TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 12,
+                                  height: 1.4),
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis),
                         if (dateStr.isNotEmpty) ...[
                           const SizedBox(height: 6),
-                          Text(dateStr, style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                          Text(dateStr,
+                              style: const TextStyle(
+                                  color: AppColors.textMuted, fontSize: 11)),
                         ],
                         // Resolve button
                         if (isOpen) ...[
@@ -124,8 +158,10 @@ class AdminReportsScreen extends ConsumerWidget {
                               },
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: AppColors.neonGreen,
-                                side: const BorderSide(color: AppColors.neonGreen),
-                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                side: const BorderSide(
+                                    color: AppColors.neonGreen),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 8),
                               ),
                               child: const Text('Mark as Resolved'),
                             ),

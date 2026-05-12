@@ -6,7 +6,6 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/helpers.dart';
-import '../../../core/utils/validators.dart';
 import '../../../shared/widgets/glass_card.dart';
 import '../../../shared/widgets/image_source_sheet.dart';
 import '../../../shared/widgets/primary_glow_button.dart';
@@ -189,8 +188,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                       horizontal: 12, vertical: 8),
                                   border: OutlineInputBorder(),
                                   enabledBorder: OutlineInputBorder(
-                                    borderSide: BorderSide(
-                                        color: AppColors.neonCyan),
+                                    borderSide:
+                                        BorderSide(color: AppColors.neonCyan),
                                   ),
                                   focusedBorder: OutlineInputBorder(
                                     borderSide: BorderSide(
@@ -237,8 +236,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             onPressed: _toggleEdit,
                             child: const Text('Cancel',
                                 style: TextStyle(
-                                    color: AppColors.textMuted,
-                                    fontSize: 13)),
+                                    color: AppColors.textMuted, fontSize: 13)),
                           ),
                           TextButton(
                             onPressed: isLoading ? null : _saveProfile,
@@ -414,10 +412,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         shape: BoxShape.circle,
         gradient: hasPhoto ? null : AppColors.primaryGradient,
         border: Border.all(
-            color: AppColors.neonCyan.withOpacity(0.4), width: 2),
+            color: AppColors.neonCyan.withValues(alpha: 0.4), width: 2),
         boxShadow: [
           BoxShadow(
-            color: AppColors.neonCyan.withOpacity(0.2),
+            color: AppColors.neonCyan.withValues(alpha: 0.2),
             blurRadius: 16,
             spreadRadius: 2,
           ),
@@ -462,8 +460,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       );
 
   // ── Menu ───────────────────────────────────────────────────────────────────
-  Widget _buildMenuSection(
-      BuildContext context, WidgetRef ref, bool isAdmin) {
+  Widget _buildMenuSection(BuildContext context, WidgetRef ref, bool isAdmin) {
     final user = ref.read(authProvider).user!;
     final wishlistCount =
         ref.watch(wishlistProvider.select((s) => s.savedIds.length));
@@ -563,8 +560,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 onTap: item.onTap,
               ),
               if (i < items.length - 1)
-                const Divider(
-                    color: AppColors.border, height: 1, indent: 56),
+                const Divider(color: AppColors.border, height: 1, indent: 56),
             ],
           );
         }).toList(),
@@ -577,9 +573,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: bg ?? color.withOpacity(0.15),
+        color: bg ?? color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withOpacity(0.4)),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
       ),
       child: Text(text,
           style: TextStyle(
@@ -594,8 +590,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       barrierDismissible: true,
       builder: (dialogCtx) => AlertDialog(
         backgroundColor: AppColors.surface,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text('Sign Out',
             style: GoogleFonts.syne(color: AppColors.textPrimary)),
         content: const Text('Are you sure you want to sign out?',

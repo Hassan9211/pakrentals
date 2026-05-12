@@ -170,7 +170,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/booking/:id',
         builder: (context, state) {
-          final id = int.parse(state.pathParameters['id']!);
+          final id = state.pathParameters['id']!;
           final isHost = state.uri.queryParameters['host'] == '1';
           return BookingDetailScreen(bookingId: id, isHost: isHost);
         },
@@ -185,9 +185,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/messages/:listingId/:userId',
         builder: (context, state) {
-          final listingId =
-              int.parse(state.pathParameters['listingId']!);
-          final userId = int.parse(state.pathParameters['userId']!);
+          final listingId = state.pathParameters['listingId']!;
+          final userId = state.pathParameters['userId']!;
           return ChatScreen(listingId: listingId, userId: userId);
         },
       ),

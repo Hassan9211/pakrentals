@@ -2,7 +2,8 @@ import '../../auth/models/user_model.dart';
 
 class ConversationModel {
   final int id;
-  final int listingId;
+  final String? firestoreId;
+  final String listingId;
   final String listingTitle;
   final String? listingImage;
   final UserModel? otherUser;
@@ -11,6 +12,7 @@ class ConversationModel {
 
   ConversationModel({
     required this.id,
+    this.firestoreId,
     required this.listingId,
     required this.listingTitle,
     this.listingImage,
@@ -22,7 +24,8 @@ class ConversationModel {
   factory ConversationModel.fromJson(Map<String, dynamic> json) {
     return ConversationModel(
       id: json['id'] ?? 0,
-      listingId: json['listing_id'] ?? 0,
+      firestoreId: json['firestore_id'],
+      listingId: json['listing_id']?.toString() ?? '',
       listingTitle: json['listing']?['title'] ?? json['listing_title'] ?? '',
       listingImage: json['listing']?['images']?[0] ?? json['listing_image'],
       otherUser: json['other_user'] != null
@@ -38,8 +41,9 @@ class ConversationModel {
 
 class MessageModel {
   final int id;
-  final int conversationId;
-  final int senderId;
+  final String? firestoreId;
+  final String conversationId;
+  final String senderId;
   final String body;
   final bool isRead;
   final String? createdAt;
@@ -47,6 +51,7 @@ class MessageModel {
 
   MessageModel({
     required this.id,
+    this.firestoreId,
     required this.conversationId,
     required this.senderId,
     required this.body,
@@ -58,8 +63,9 @@ class MessageModel {
   factory MessageModel.fromJson(Map<String, dynamic> json) {
     return MessageModel(
       id: json['id'] ?? 0,
-      conversationId: json['conversation_id'] ?? 0,
-      senderId: json['sender_id'] ?? 0,
+      firestoreId: json['firestore_id'],
+      conversationId: json['conversation_id']?.toString() ?? '',
+      senderId: json['sender_id']?.toString() ?? '',
       body: json['body'] ?? '',
       isRead: json['is_read'] == true || json['is_read'] == 1,
       createdAt: json['created_at'],

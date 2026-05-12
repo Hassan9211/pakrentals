@@ -66,8 +66,7 @@ class BrowseNotifier extends StateNotifier<BrowseState> {
       }
 
       // City filter
-      if (filters['city'] != null &&
-          (filters['city'] as String).isNotEmpty) {
+      if (filters['city'] != null && (filters['city'] as String).isNotEmpty) {
         q = q.where('city', isEqualTo: filters['city']);
       }
 
@@ -84,13 +83,11 @@ class BrowseNotifier extends StateNotifier<BrowseState> {
                     double.infinity);
       }
 
-      final snap = await q
-          .limit(50)
-          .get()
-          .timeout(const Duration(seconds: 10));
+      final snap = await q.limit(50).get().timeout(const Duration(seconds: 10));
 
       var results = snap.docs.map((doc) {
-        return ListingModel.fromJson({'id': doc.id, ...doc.data() as Map<String, dynamic>});
+        return ListingModel.fromJson(
+            {'id': doc.id, ...doc.data() as Map<String, dynamic>});
       }).toList();
 
       // Client-side search
@@ -114,8 +111,8 @@ class BrowseNotifier extends StateNotifier<BrowseState> {
           results.sort((a, b) => b.pricePerDay.compareTo(a.pricePerDay));
           break;
         case 'rating':
-          results.sort(
-              (a, b) => (b.avgRating ?? 0).compareTo(a.avgRating ?? 0));
+          results
+              .sort((a, b) => (b.avgRating ?? 0).compareTo(a.avgRating ?? 0));
           break;
         default:
           // latest — Firestore returns in insertion order by default
@@ -211,8 +208,7 @@ class ListingDetailNotifier extends StateNotifier<ListingDetailState> {
 
       ListingModel? listing;
       for (final doc in snap.docs) {
-        final candidate = ListingModel.fromJson(
-            {'id': doc.id, ...doc.data() as Map<String, dynamic>});
+        final candidate = ListingModel.fromJson({'id': doc.id, ...doc.data()});
         if (candidate.id == listingId) {
           listing = candidate;
           break;
@@ -229,9 +225,35 @@ class ListingDetailNotifier extends StateNotifier<ListingDetailState> {
               .get()
               .timeout(const Duration(seconds: 5));
           reviews = reviewSnap.docs.map((d) {
-            return ReviewModel.fromJson(
-                {'id': d.id, ...d.data() as Map<String, dynamic>});
+            return ReviewModel.fromJson({'id': d.id, ...d.data()});
           }).toList();
+        } catch (_) {}
+      }
+
+      // Fetch unavailable dates (existing bookings)
+      List<String> unavailableDates = [];
+      if (listing?.firestoreId != null) {
+        try {
+          final bookingSnap = await _db
+              .collection('bookings')
+              .where('listing_id', isEqualTo: listing!.firestoreId)
+              .where('status', whereIn: ['approved', 'paid', 'active'])
+              .get()
+              .timeout(const Duration(seconds: 5));
+
+          for (final doc in bookingSnap.docs) {
+            final data = doc.data();
+            final start = DateTime.parse(data['start_date']);
+            final end = DateTime.parse(data['end_date']);
+
+            // Fill all dates between start and end
+            for (var d = start;
+                d.isBefore(end) || d.isAtSameMomentAs(end);
+                d = d.add(const Duration(days: 1))) {
+              unavailableDates.add(
+                  '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}');
+            }
+          }
         } catch (_) {}
       }
 
@@ -239,7 +261,7 @@ class ListingDetailNotifier extends StateNotifier<ListingDetailState> {
         isLoading: false,
         listing: listing,
         reviews: reviews,
-        unavailableDates: [],
+        unavailableDates: unavailableDates,
       );
     } catch (e) {
       debugPrint('ListingDetailNotifier error: $e');

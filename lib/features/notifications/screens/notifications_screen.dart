@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import '../../../core/theme/app_colors.dart';
@@ -39,13 +40,14 @@ class _NotifNotifier extends StateNotifier<List<NotificationModel>> {
         final ts = data['created_at'];
         return NotificationModel(
           id: doc.id.hashCode,
+          firestoreId: doc.id,
           type: data['type'] ?? 'general',
           title: data['title'] ?? 'Notification',
           body: data['body'] ?? '',
           isRead: data['is_read'] ?? false,
-          createdAt: ts != null
-              ? (ts as dynamic).toDate().toIso8601String()
-              : null,
+          bookingId: data['booking_id']?.toString(),
+          createdAt:
+              ts != null ? (ts as dynamic).toDate().toIso8601String() : null,
         );
       }).toList();
       state = notifs;
@@ -72,8 +74,12 @@ class _NotifNotifier extends StateNotifier<List<NotificationModel>> {
     state = state.map((n) {
       if (n.id == id) {
         return NotificationModel(
-          id: n.id, type: n.type, title: n.title,
-          body: n.body, isRead: true, createdAt: n.createdAt,
+          id: n.id,
+          type: n.type,
+          title: n.title,
+          body: n.body,
+          isRead: true,
+          createdAt: n.createdAt,
         );
       }
       return n;
@@ -93,10 +99,16 @@ class _NotifNotifier extends StateNotifier<List<NotificationModel>> {
         doc.reference.update({'is_read': true});
       }
     });
-    state = state.map((n) => NotificationModel(
-          id: n.id, type: n.type, title: n.title,
-          body: n.body, isRead: true, createdAt: n.createdAt,
-        )).toList();
+    state = state
+        .map((n) => NotificationModel(
+              id: n.id,
+              type: n.type,
+              title: n.title,
+              body: n.body,
+              isRead: true,
+              createdAt: n.createdAt,
+            ))
+        .toList();
   }
 
   @override
@@ -150,13 +162,19 @@ class NotificationsScreen extends ConsumerWidget {
               itemBuilder: (context, index) {
                 final notif = notifications[index];
                 return InkWell(
-                  onTap: () => ref
-                      .read(notificationsProvider.notifier)
-                      .markRead(notif.id),
+                  onTap: () {
+                    ref.read(notificationsProvider.notifier).markRead(notif.id);
+
+                    if (notif.bookingId != null) {
+                      context.push('/booking/${notif.bookingId}');
+                    } else if (notif.type == 'new_message') {
+                      context.push('/messages');
+                    }
+                  },
                   child: Container(
                     color: notif.isRead
                         ? null
-                        : AppColors.neonCyan.withOpacity(0.04),
+                        : AppColors.neonCyan.withValues(alpha: 0.04),
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 12),
                     child: Row(
@@ -168,12 +186,12 @@ class NotificationsScreen extends ConsumerWidget {
                           decoration: BoxDecoration(
                             color: notif.isRead
                                 ? AppColors.surfaceVariant
-                                : AppColors.neonCyan.withOpacity(0.15),
+                                : AppColors.neonCyan.withValues(alpha: 0.15),
                             shape: BoxShape.circle,
                             border: Border.all(
                               color: notif.isRead
                                   ? AppColors.border
-                                  : AppColors.neonCyan.withOpacity(0.4),
+                                  : AppColors.neonCyan.withValues(alpha: 0.4),
                             ),
                           ),
                           child: Icon(_getIcon(notif.type),
@@ -221,11 +239,10 @@ class NotificationsScreen extends ConsumerWidget {
                               if (notif.createdAt != null) ...[
                                 const SizedBox(height: 4),
                                 Text(
-                                  timeago.format(
-                                      DateTime.parse(notif.createdAt!)),
+                                  timeago
+                                      .format(DateTime.parse(notif.createdAt!)),
                                   style: const TextStyle(
-                                      color: AppColors.textMuted,
-                                      fontSize: 11),
+                                      color: AppColors.textMuted, fontSize: 11),
                                 ),
                               ],
                             ],
@@ -242,13 +259,23 @@ class NotificationsScreen extends ConsumerWidget {
 
   IconData _getIcon(String type) {
     switch (type) {
-      case 'booking_request': return Icons.calendar_today_outlined;
-      case 'booking_approved': return Icons.check_circle_outline;
-      case 'booking_rejected': return Icons.cancel_outlined;
-      case 'payment': return Icons.payment_outlined;
-      case 'message': return Icons.chat_bubble_outline;
-      case 'report': return Icons.flag_outlined;
-      default: return Icons.notifications_outlined;
+      case 'booking_request':
+        return Icons.calendar_today_outlined;
+      case 'booking_approved':
+        return Icons.check_circle_outline;
+      case 'booking_rejected':
+        return Icons.cancel_outlined;
+      case 'payment':
+      case 'payment_proof':
+        return Icons.payment_outlined;
+      case 'handover':
+        return Icons.handshake_outlined;
+      case 'message':
+        return Icons.chat_bubble_outline;
+      case 'report':
+        return Icons.flag_outlined;
+      default:
+        return Icons.notifications_outlined;
     }
   }
 }

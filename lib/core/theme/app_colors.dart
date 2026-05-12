@@ -20,7 +20,7 @@ class AppColors {
 
   // Borders
   static const Color border = Color(0xFF2A2A3E);
-  static const Color borderGlow = Color(0xff00f5ff40);
+  static const Color borderGlow = Color(0x4000F5FF);
 
   // Status
   static const Color success = Color(0xFF10B981);

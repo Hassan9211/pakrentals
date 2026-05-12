@@ -9,15 +9,18 @@ import '../../../shared/widgets/glass_card.dart';
 import '../../../shared/widgets/neon_gradient_text.dart';
 
 // ── Firestore-backed admin stats ──────────────────────────────────────────────
-final adminStatsProvider =
-    FutureProvider<Map<String, dynamic>>((ref) async {
+final adminStatsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final db = FirebaseFirestore.instance;
 
   try {
     // Use get() instead of count() — more compatible with Firestore rules
     final results = await Future.wait([
       db.collection('users').get().timeout(const Duration(seconds: 10)),
-      db.collection('listings').where('status', isEqualTo: 'active').get().timeout(const Duration(seconds: 10)),
+      db
+          .collection('listings')
+          .where('status', isEqualTo: 'active')
+          .get()
+          .timeout(const Duration(seconds: 10)),
       db.collection('bookings').get().timeout(const Duration(seconds: 10)),
       db.collection('reports').get().timeout(const Duration(seconds: 10)),
     ]);
@@ -85,7 +88,6 @@ class AdminScreen extends ConsumerWidget {
               NeonGradientText('Overview',
                   fontSize: 22, fontWeight: FontWeight.w700),
               const SizedBox(height: 16),
-
               statsAsync.when(
                 loading: () => GridView.count(
                   shrinkWrap: true,
@@ -95,28 +97,48 @@ class AdminScreen extends ConsumerWidget {
                   mainAxisSpacing: 12,
                   childAspectRatio: 2.2,
                   children: [
-                    _StatCard(label: 'Total Users', value: '...', icon: Icons.people_outlined, color: AppColors.neonCyan),
-                    _StatCard(label: 'Active Listings', value: '...', icon: Icons.home_outlined, color: AppColors.neonViolet),
-                    _StatCard(label: 'Total Bookings', value: '...', icon: Icons.calendar_today_outlined, color: AppColors.neonPink),
-                    _StatCard(label: 'Revenue', value: '...', icon: Icons.payments_outlined, color: AppColors.neonGreen),
+                    _StatCard(
+                        label: 'Total Users',
+                        value: '...',
+                        icon: Icons.people_outlined,
+                        color: AppColors.neonCyan),
+                    _StatCard(
+                        label: 'Active Listings',
+                        value: '...',
+                        icon: Icons.home_outlined,
+                        color: AppColors.neonViolet),
+                    _StatCard(
+                        label: 'Total Bookings',
+                        value: '...',
+                        icon: Icons.calendar_today_outlined,
+                        color: AppColors.neonPink),
+                    _StatCard(
+                        label: 'Revenue',
+                        value: '...',
+                        icon: Icons.payments_outlined,
+                        color: AppColors.neonGreen),
                   ],
                 ),
                 error: (e, _) => Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppColors.error.withOpacity(0.1),
+                    color: AppColors.error.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.error.withOpacity(0.3)),
+                    border: Border.all(
+                        color: AppColors.error.withValues(alpha: 0.3)),
                   ),
                   child: Column(
                     children: [
                       const Icon(Icons.error_outline, color: AppColors.error),
                       const SizedBox(height: 8),
-                      Text('$e', style: const TextStyle(color: AppColors.error, fontSize: 12)),
+                      Text('$e',
+                          style: const TextStyle(
+                              color: AppColors.error, fontSize: 12)),
                       const SizedBox(height: 8),
                       TextButton(
                         onPressed: () => ref.invalidate(adminStatsProvider),
-                        child: const Text('Retry', style: TextStyle(color: AppColors.neonCyan)),
+                        child: const Text('Retry',
+                            style: TextStyle(color: AppColors.neonCyan)),
                       ),
                     ],
                   ),
@@ -156,16 +178,13 @@ class AdminScreen extends ConsumerWidget {
                   ],
                 ),
               ),
-
               const SizedBox(height: 24),
-
               Text('Management',
                   style: GoogleFonts.syne(
                       color: AppColors.textPrimary,
                       fontSize: 18,
                       fontWeight: FontWeight.w700)),
               const SizedBox(height: 12),
-
               GlassCard(
                 padding: EdgeInsets.zero,
                 child: Column(
@@ -175,30 +194,41 @@ class AdminScreen extends ConsumerWidget {
                       label: 'Users',
                       onTap: () => context.push('/admin/users'),
                     ),
-                    const Divider(color: AppColors.border, height: 1, indent: 56),
+                    const Divider(
+                        color: AppColors.border, height: 1, indent: 56),
                     _AdminMenuItem(
                       icon: Icons.home_outlined,
                       label: 'Listings',
                       onTap: () => context.push('/admin/listings'),
                     ),
-                    const Divider(color: AppColors.border, height: 1, indent: 56),
+                    const Divider(
+                        color: AppColors.border, height: 1, indent: 56),
                     _AdminMenuItem(
                       icon: Icons.calendar_today_outlined,
                       label: 'Bookings',
                       onTap: () => context.push('/admin/bookings'),
                     ),
-                    const Divider(color: AppColors.border, height: 1, indent: 56),
+                    const Divider(
+                        color: AppColors.border, height: 1, indent: 56),
                     _AdminMenuItem(
                       icon: Icons.flag_outlined,
                       label: 'Reports',
                       badgeColor: AppColors.error,
                       onTap: () => context.push('/admin/reports'),
                     ),
-                    const Divider(color: AppColors.border, height: 1, indent: 56),
+                    const Divider(
+                        color: AppColors.border, height: 1, indent: 56),
                     _AdminMenuItem(
                       icon: Icons.payments_outlined,
                       label: 'Payouts',
                       onTap: () => context.push('/admin/payouts'),
+                    ),
+                    const Divider(
+                        color: AppColors.border, height: 1, indent: 56),
+                    _AdminMenuItem(
+                      icon: Icons.chat_bubble_outline,
+                      label: 'Messages',
+                      onTap: () => context.push('/messages'),
                     ),
                   ],
                 ),
@@ -231,7 +261,7 @@ class _StatCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.card,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
@@ -289,8 +319,8 @@ class _AdminMenuItem extends StatelessWidget {
       leading: Icon(icon, color: AppColors.textSecondary, size: 20),
       title: Text(label,
           style: const TextStyle(color: AppColors.textPrimary, fontSize: 14)),
-      trailing: const Icon(Icons.chevron_right,
-          color: AppColors.textMuted, size: 18),
+      trailing:
+          const Icon(Icons.chevron_right, color: AppColors.textMuted, size: 18),
       onTap: onTap,
     );
   }
