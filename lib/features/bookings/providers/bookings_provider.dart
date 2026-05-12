@@ -206,7 +206,7 @@ class BookingsNotifier extends StateNotifier<BookingsState> {
         return false;
       }
 
-      await _db.collection('bookings').add({
+      final bookingRef = await _db.collection('bookings').add({
         'listing_id': listingId,
         'renter_id': renterUid,
         'host_id': hostId,
@@ -223,8 +223,23 @@ class BookingsNotifier extends StateNotifier<BookingsState> {
         unawaited(_db.collection('notifications').add({
           'user_id': hostId,
           'type': 'booking_request',
-          'title': 'New Booking Request',
+          'title': 'New Booking Request 🔔',
           'body': 'Someone requested to book "${listingData['title']}"',
+          'booking_id': bookingRef.id,
+          'is_read': false,
+          'created_at': FieldValue.serverTimestamp(),
+        }));
+      }
+
+      // Also notify admin
+      const adminUid = 't41DI9ZHowUAsk9pgyFd7iJrTsA3';
+      if (hostId != adminUid) {
+        unawaited(_db.collection('notifications').add({
+          'user_id': adminUid,
+          'type': 'booking_request',
+          'title': 'New Booking Request 🔔',
+          'body': 'New booking for "${listingData['title']}"',
+          'booking_id': bookingRef.id,
           'is_read': false,
           'created_at': FieldValue.serverTimestamp(),
         }));
@@ -273,16 +288,29 @@ class BookingsNotifier extends StateNotifier<BookingsState> {
         'updated_at': FieldValue.serverTimestamp(),
       });
 
-      final renterId = (await _db.collection('bookings').doc(b.firestoreId!).get())
-          .data()?['renter_id']?.toString();
+      final bookingData = (await _db.collection('bookings').doc(b.firestoreId!).get()).data();
+      final renterId = bookingData?['renter_id']?.toString();
+      final listingId = bookingData?['listing_id']?.toString();
+
+      // Get listing title for notification body
+      String listingTitle = 'your booking';
+      if (listingId != null && listingId.isNotEmpty) {
+        try {
+          final ld = await _db.collection('listings').doc(listingId).get();
+          if (ld.exists) listingTitle = ld.data()?['title'] ?? listingTitle;
+        } catch (_) {}
+      }
+
       if (renterId != null && renterId.isNotEmpty) {
+        final isApproved = status == 'approved';
         unawaited(_db.collection('notifications').add({
           'user_id': renterId,
-          'type': status == 'approved' ? 'booking_approved' : 'booking_rejected',
-          'title': status == 'approved' ? 'Booking Approved!' : 'Booking Rejected',
-          'body': status == 'approved'
-              ? 'Your booking was approved. Please complete payment.'
-              : 'Your booking request was declined.',
+          'type': isApproved ? 'booking_approved' : 'booking_rejected',
+          'title': isApproved ? '✅ Booking Approved!' : '❌ Booking Rejected',
+          'body': isApproved
+              ? 'Your booking for "$listingTitle" was approved. Please complete payment.'
+              : 'Your booking for "$listingTitle" was declined.',
+          'booking_id': b.firestoreId,
           'is_read': false,
           'created_at': FieldValue.serverTimestamp(),
         }));

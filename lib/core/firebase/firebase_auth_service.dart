@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import '../firebase/firebase_service.dart';
 
 class FirebaseAuthService {
   static final _auth = FirebaseAuth.instance;
@@ -124,7 +125,10 @@ class FirebaseAuthService {
   }
 
   // ── Logout ─────────────────────────────────────────────────────────────────
-  static Future<void> logout() => _auth.signOut();
+  static Future<void> logout() async {
+    await FirebaseService.removeFcmToken();
+    await _auth.signOut();
+  }
 
   // ── Update profile ─────────────────────────────────────────────────────────
   static Future<void> updateProfile(Map<String, dynamic> data) async {

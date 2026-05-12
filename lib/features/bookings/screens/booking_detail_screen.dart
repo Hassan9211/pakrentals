@@ -55,7 +55,7 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
 
   // ── Send notification to admin ─────────────────────────────────────────────
   Future<void> _notifyAdmin(String title, String body,
-      {List<String>? photoUrls}) async {
+      {List<String>? photoUrls, String? firestoreBookingId}) async {
     const adminUid = 't41DI9ZHowUAsk9pgyFd7iJrTsA3';
     await FirebaseFirestore.instance.collection('notifications').add({
       'user_id': adminUid,
@@ -63,7 +63,7 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
       'title': title,
       'body': body,
       'photo_urls': photoUrls ?? [],
-      'booking_id': widget.bookingId.toString(),
+      'booking_id': firestoreBookingId ?? widget.bookingId.toString(),
       'is_read': false,
       'created_at': FieldValue.serverTimestamp(),
     });
@@ -72,14 +72,14 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
   // ── Send notification to host ──────────────────────────────────────────────
   Future<void> _notifyHost(
       String hostId, String title, String body,
-      {List<String>? photoUrls}) async {
+      {List<String>? photoUrls, String? firestoreBookingId}) async {
     await FirebaseFirestore.instance.collection('notifications').add({
       'user_id': hostId,
       'type': 'payment_proof',
       'title': title,
       'body': body,
       'photo_urls': photoUrls ?? [],
-      'booking_id': widget.bookingId.toString(),
+      'booking_id': firestoreBookingId ?? widget.bookingId.toString(),
       'is_read': false,
       'created_at': FieldValue.serverTimestamp(),
     });
@@ -117,17 +117,19 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
       if (hostId.isNotEmpty) {
         await _notifyHost(
           hostId,
-          'Payment Proof Submitted',
+          '💰 Payment Proof Submitted',
           'Renter has uploaded payment proof for booking $bookingRef — "$listingTitle"',
           photoUrls: urls,
+          firestoreBookingId: firestoreId,
         );
       }
 
       // Notify ADMIN too
       await _notifyAdmin(
-        'Payment Proof Received',
+        '💰 Payment Proof Received',
         'Renter submitted payment proof for booking $bookingRef — "$listingTitle"',
         photoUrls: urls,
+        firestoreBookingId: firestoreId,
       );
 
       if (mounted) showSnackBar(context, 'Payment proof sent to host & admin! ✅');
@@ -159,9 +161,10 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
       }
 
       await _notifyAdmin(
-        'Item Picked Up',
+        '📦 Item Picked Up',
         'Renter has confirmed receiving the item for booking #${widget.bookingId.toString().substring(0, 6)}',
         photoUrls: urls,
+        firestoreBookingId: firestoreId,
       );
 
       if (mounted) showSnackBar(context, 'Pickup confirmed! Item is now active 🎉');
@@ -193,9 +196,10 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
       }
 
       await _notifyAdmin(
-        'Item Returned',
+        '🔄 Item Returned',
         'Renter has returned the item for booking #${widget.bookingId.toString().substring(0, 6)}',
         photoUrls: urls,
+        firestoreBookingId: firestoreId,
       );
 
       if (mounted) showSnackBar(context, 'Return confirmed! Booking completed ✅');
